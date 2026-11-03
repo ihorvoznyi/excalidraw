@@ -15,6 +15,7 @@ import {
 import { pointFrom, type Radians } from "@excalidraw/math";
 
 import {
+  CODE_LABEL,
   DEFAULT_BOUND_TEXT_LABEL_POSITION,
   fixBindingsAfterDeletion,
   getActiveTextElement,
@@ -29,6 +30,7 @@ import {
   getStickyNoteLayout,
   hitElementItself,
   isArrowElement,
+  isCodeElement,
   isFrameLikeElement,
   isNonDeletedElement,
   isOpaqueForBinding,
@@ -670,6 +672,8 @@ export class AppText {
       sceneY = arrowEndpointBinding.anchor[1];
     }
 
+    const codeLabel = container && isCodeElement(container) ? CODE_LABEL : null;
+
     let parentCenterPosition =
       insertAtParentCenter &&
       this.getTextWysiwygSnappedToCenterPosition(
@@ -692,7 +696,7 @@ export class AppText {
       : textElement !== undefined
       ? textElement
       : this.getSelectedTextElement(container) ||
-        (container && isArrowElement(container)
+        (container && (isArrowElement(container) || codeLabel)
           ? getBoundTextElement(
               container,
               this.app.scene.getNonDeletedElementsMap(),
@@ -700,8 +704,22 @@ export class AppText {
           : null) ||
         this.getTextElementAtPosition(sceneX, sceneY);
 
+    // a label a cleared block got before new ones kept this style
+    if (
+      codeLabel &&
+      existingTextElement &&
+      existingTextElement.textAlign !== codeLabel.textAlign
+    ) {
+      this.app.scene.mutateElement(existingTextElement, {
+        ...codeLabel,
+        lineHeight: getLineHeight(codeLabel.fontFamily),
+      });
+    }
+
     const fontFamily =
-      existingTextElement?.fontFamily || this.app.state.currentItemFontFamily;
+      existingTextElement?.fontFamily ||
+      codeLabel?.fontFamily ||
+      this.app.state.currentItemFontFamily;
 
     const lineHeight =
       existingTextElement?.lineHeight || getLineHeight(fontFamily);
@@ -827,6 +845,7 @@ export class AppText {
             : (0 as Radians),
         frameId,
         renderEnvironment: this.app.renderEnvironment,
+        ...codeLabel,
       });
 
     if (!existingTextElement && shouldBindToContainer && container) {

@@ -70,9 +70,12 @@ import {
   getElementAbsoluteCoords,
 } from "./bounds";
 import { shouldTestInside } from "./collision";
+import { getTodoLayout } from "./todo";
 
+import type { RenderEnvironment } from "./renderEnvironment";
 import type {
   ExcalidrawElement,
+  ExcalidrawTextElement,
   ExcalidrawSelectionElement,
   ExcalidrawLinearElement,
   ExcalidrawFreeDrawElement,
@@ -261,6 +264,51 @@ export const generateRoughOptions = (
       throw new Error(`Unimplemented type ${element.type}`);
     }
   }
+};
+
+/** A to-do's checkbox, plus its check and a strike per label line once checked */
+export const generateTodoShapes = (
+  container: ExcalidrawElement,
+  label: ExcalidrawTextElement | null,
+  generator: RoughGenerator,
+  isDarkMode: boolean,
+  renderEnvironment?: RenderEnvironment,
+): Drawable[] => {
+  const { box, lines } = getTodoLayout(container, label, renderEnvironment);
+  const { x, y, size } = box;
+  // rough like a standalone shape of that size (small ones get smoother)
+  const options = (width: number) =>
+    generateRoughOptions(
+      { ...container, width, height: width },
+      false,
+      isDarkMode,
+    );
+  const shapes = [generator.rectangle(x, y, size, size, options(size))];
+
+  if (container.customData?.todo.checked) {
+    shapes.push(
+      generator.linearPath(
+        [
+          [x + size * 0.2, y + size * 0.5],
+          [x + size * 0.45, y + size * 0.8],
+          [x + size * 1.1, y - size * 0.1],
+        ],
+        options(size),
+      ),
+      ...lines
+        .filter((line) => line.width > 0)
+        .map((line) =>
+          generator.line(
+            line.x,
+            line.y,
+            line.x + line.width,
+            line.y,
+            options(line.width),
+          ),
+        ),
+    );
+  }
+  return shapes;
 };
 
 const modifyIframeLikeForRoughOptions = (

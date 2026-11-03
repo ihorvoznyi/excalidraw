@@ -38,6 +38,8 @@ import { getContainingFrame } from "@excalidraw/element";
 import { getCornerRadius, isPathALoop } from "@excalidraw/element";
 
 import { ShapeCache } from "@excalidraw/element";
+import { generateTodoShapes, isTodoElement } from "@excalidraw/element";
+import { appendTextRunsSvg, getTextRuns } from "@excalidraw/element";
 import {
   getStickyNoteFooter,
   getStickyNotePathCommands,
@@ -271,12 +273,28 @@ const renderElementToSvg = (
     case "rectangle":
     case "diamond":
     case "ellipse": {
-      const shape = ShapeCache.generateElementShape(element, renderConfig);
-      const node = roughSVGDrawWithPrecision(
-        rsvg,
-        shape,
-        MAX_DECIMALS_FOR_SVG_EXPORT,
-      );
+      let node: SVGElement;
+      if (isTodoElement(element)) {
+        node = svgRoot.ownerDocument.createElementNS(SVG_NS, "g");
+        for (const shape of generateTodoShapes(
+          element,
+          getBoundTextElement(element, elementsMap),
+          rsvg.generator,
+          renderConfig.theme === THEME.DARK,
+          renderConfig.renderEnvironment,
+        )) {
+          node.appendChild(
+            roughSVGDrawWithPrecision(rsvg, shape, MAX_DECIMALS_FOR_SVG_EXPORT),
+          );
+        }
+      } else {
+        const shape = ShapeCache.generateElementShape(element, renderConfig);
+        node = roughSVGDrawWithPrecision(
+          rsvg,
+          shape,
+          MAX_DECIMALS_FOR_SVG_EXPORT,
+        );
+      }
       if (opacity !== 1) {
         node.setAttribute("stroke-opacity", `${opacity}`);
         node.setAttribute("fill-opacity", `${opacity}`);
@@ -812,25 +830,41 @@ const renderElementToSvg = (
             : element.textAlign === "right" || direction === "rtl"
             ? "end"
             : "start";
-        for (let i = 0; i < lines.length; i++) {
-          const text = svgRoot.ownerDocument.createElementNS(SVG_NS, "text");
-          text.textContent = lines[i];
-          text.setAttribute("x", `${horizontalOffset}`);
-          text.setAttribute("y", `${i * lineHeightPx + verticalOffset}`);
-          text.setAttribute("font-family", getFontFamilyString(element));
-          text.setAttribute("font-size", `${element.fontSize}px`);
-          text.setAttribute(
-            "fill",
-            applyDarkModeFilter(
-              element.strokeColor,
-              renderConfig.theme === THEME.DARK,
-            ),
+        const runLines = getTextRuns(
+          element,
+          getContainerElement(element, elementsMap),
+          renderConfig.renderEnvironment,
+        );
+        if (runLines) {
+          appendTextRunsSvg(
+            node,
+            element,
+            runLines,
+            lineHeightPx,
+            verticalOffset,
+            renderConfig.theme === THEME.DARK,
           );
-          text.setAttribute("text-anchor", textAnchor);
-          text.setAttribute("style", "white-space: pre;");
-          text.setAttribute("direction", direction);
-          text.setAttribute("dominant-baseline", "alphabetic");
-          node.appendChild(text);
+        } else {
+          for (let i = 0; i < lines.length; i++) {
+            const text = svgRoot.ownerDocument.createElementNS(SVG_NS, "text");
+            text.textContent = lines[i];
+            text.setAttribute("x", `${horizontalOffset}`);
+            text.setAttribute("y", `${i * lineHeightPx + verticalOffset}`);
+            text.setAttribute("font-family", getFontFamilyString(element));
+            text.setAttribute("font-size", `${element.fontSize}px`);
+            text.setAttribute(
+              "fill",
+              applyDarkModeFilter(
+                element.strokeColor,
+                renderConfig.theme === THEME.DARK,
+              ),
+            );
+            text.setAttribute("text-anchor", textAnchor);
+            text.setAttribute("style", "white-space: pre;");
+            text.setAttribute("direction", direction);
+            text.setAttribute("dominant-baseline", "alphabetic");
+            node.appendChild(text);
+          }
         }
 
         const g = maybeWrapNodesInFrameClipPath(

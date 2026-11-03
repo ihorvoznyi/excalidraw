@@ -66,6 +66,8 @@ import {
   ViewportStatusBorder,
 } from "./ViewportStatusFrame/ViewportStatusFrame";
 
+import { TextStylePanel } from "./TextStylePanel";
+
 import "./LayerUI.scss";
 import "./Toolbar.scss";
 
@@ -505,6 +507,7 @@ const LayerUI = ({
       {appState.openDialog?.name === "ttd" && <TTDDialog __fallback />}
       {/* ------------------------------------------------------------------ */}
 
+      <TextStylePanel theme={appState.theme} />
       {defaultUIEnabled && appState.isLoading && <LoadingMessage delay={250} />}
       {defaultUIEnabled && appState.errorMessage && (
         <ErrorDialog onClose={() => setAppState({ errorMessage: null })}>

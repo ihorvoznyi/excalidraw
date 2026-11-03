@@ -34,6 +34,14 @@ import {
   computeContainerDimensionForBoundText,
   computeBoundTextPosition,
   getBoundTextElement,
+  getCodePadding,
+  isCodeElement,
+  getActiveTextStyle,
+  getTextMarks,
+  hasTextStyles,
+  patchTextMarks,
+  ShapeCache,
+  shiftTextMarks,
 } from "@excalidraw/element";
 import { getTextWidth } from "@excalidraw/element";
 import { getLineHeightInPx } from "@excalidraw/element";
@@ -48,6 +56,7 @@ import {
   isTextElement,
 } from "@excalidraw/element";
 
+import type { TextMark } from "@excalidraw/element";
 import type {
   ExcalidrawLinearElement,
   ExcalidrawTextElementWithContainer,
@@ -72,6 +81,9 @@ import {
   actionZoomIn,
   actionZoomOut,
 } from "../actions/actionCanvas";
+
+import { editorJotaiStore } from "../editor-jotai";
+import { textStylePanelAtom } from "../components/TextStylePanel";
 
 import type { ParsedDataTranferList } from "../clipboard";
 
@@ -416,6 +428,7 @@ export const textWysiwyg = ({
             const targetContainerHeight = computeContainerDimensionForBoundText(
               height,
               container.type,
+              getCodePadding(container, "y"),
             );
 
             app.scene.mutateElement(container, {
@@ -433,6 +446,7 @@ export const textWysiwyg = ({
             const targetContainerHeight = computeContainerDimensionForBoundText(
               height,
               container.type,
+              getCodePadding(container, "y"),
             );
             app.scene.mutateElement(container, {
               height: targetContainerHeight,
@@ -462,8 +476,30 @@ export const textWysiwyg = ({
       // add 5% buffer otherwise it causes wysiwyg to jump
       height *= 1.05;
 
+      // a code block's editor fills the block, for a press anywhere in it to
+      // place the caret; its text box, and so its wrapping, stays the text's
+      let paddingLeft = 0;
+      let paddingTop = 0;
+      if (container && isCodeElement(container)) {
+        const { x, y } = computeBoundTextPosition(
+          { ...container, angle: 0 as Radians },
+          updatedTextElement as ExcalidrawTextElementWithContainer,
+          elementsMap,
+        );
+        paddingLeft = x - container.x;
+        paddingTop = y - container.y;
+        const paddingRight = container.width - paddingLeft - width;
+        const paddingBottom = container.height - paddingTop - height;
+        editable.style.padding = `${paddingTop}px ${paddingRight}px ${Math.max(
+          0,
+          paddingBottom,
+        )}px ${paddingLeft}px`;
+      }
+
       const font = getFontString(updatedTextElement);
+      const styled = hasTextStyles(updatedTextElement, container);
       const editorBoxLeft = updateEditorBoxInsets();
+      editable.classList.toggle("excalidraw-wysiwyg--styled", styled);
 
       // a free text that stopped growing at the viewport's width (see
       // AppText.getMaxTextWidth) wraps from then on, and so does its editor
@@ -481,12 +517,12 @@ export const textWysiwyg = ({
         lineHeight: updatedTextElement.lineHeight,
         width: `${width}px`,
         height: `${height}px`,
-        left: `${viewportX - editorBoxLeft}px`,
-        top: `${viewportY}px`,
+        left: `${viewportX - editorBoxLeft - paddingLeft}px`,
+        top: `${viewportY - paddingTop}px`,
         // about the text's center, whatever size the box itself ends up
         // (the 5% buffer) — see getTransform
-        transformOrigin: `${updatedTextElement.width / 2}px ${
-          updatedTextElement.height / 2
+        transformOrigin: `${paddingLeft + updatedTextElement.width / 2}px ${
+          paddingTop + updatedTextElement.height / 2
         }px`,
         transform: getTransform(
           updatedTextElement.width,
@@ -496,10 +532,19 @@ export const textWysiwyg = ({
         ),
         textAlign,
         verticalAlign,
-        color: applyDarkModeFilter(
-          updatedTextElement.strokeColor,
-          appState.theme === THEME.DARK,
-        ),
+        color: styled
+          ? "transparent"
+          : applyDarkModeFilter(
+              updatedTextElement.strokeColor,
+              appState.theme === THEME.DARK,
+            ),
+        // a styled text is drawn by the canvas, under the transparent editor
+        caretColor: styled
+          ? applyDarkModeFilter(
+              updatedTextElement.strokeColor,
+              appState.theme === THEME.DARK,
+            )
+          : "",
         opacity: updatedTextElement.opacity / 100,
       });
       currentTextLayout = {
@@ -524,6 +569,14 @@ export const textWysiwyg = ({
 
       app.scene.mutateElement(updatedTextElement, { x: coordX, y: coordY });
     }
+  };
+
+  const setMarks = (label: ExcalidrawTextElement, marks: TextMark[]) => {
+    const { marks: _, ...rest } = label.customData ?? {};
+    ShapeCache.delete(label);
+    app.scene.mutateElement(label, {
+      customData: marks.length ? { ...rest, marks } : rest,
+    });
   };
 
   const editable = ownerDocument.createElement("textarea");
@@ -627,16 +680,16 @@ export const textWysiwyg = ({
    * Where the caret is on screen (see getViewportCoords), as the editor lays
    * the text out: the bounds of its line-high stroke.
    */
-  const getCaretViewportBounds = () => {
+  const getCaretViewportBounds = (
+    caret = editable.selectionDirection === "backward"
+      ? editable.selectionStart
+      : editable.selectionEnd,
+  ) => {
     const layout = currentTextLayout;
     if (!layout) {
       return null;
     }
     const { value } = editable;
-    const caret =
-      editable.selectionDirection === "backward"
-        ? editable.selectionStart
-        : editable.selectionEnd;
     const lines = getWrappedTextLines(
       value,
       layout.font,
@@ -696,6 +749,30 @@ export const textWysiwyg = ({
       top: Math.min(y1, y2),
       bottom: Math.max(y1, y2),
     };
+  };
+
+  const publishTextStyleSelection = () => {
+    const { selectionStart: start, selectionEnd: end } = editable;
+    const label = app.scene.getElement<ExcalidrawTextElement>(element.id);
+    const bounds =
+      !isDestroyed && label && start !== end && getCaretViewportBounds(start);
+    if (!label || !bounds) {
+      editorJotaiStore.set(textStylePanelAtom, null);
+      return;
+    }
+    const length = editable.value.length;
+    editorJotaiStore.set(textStylePanelAtom, {
+      left: bounds.left,
+      top: bounds.top,
+      activeStyle: getActiveTextStyle(getTextMarks(label), length, start, end),
+      apply: (patch) => {
+        setMarks(
+          label,
+          patchTextMarks(getTextMarks(label), length, start, end, patch),
+        );
+        publishTextStyleSelection();
+      },
+    });
   };
 
   /**
@@ -855,6 +932,14 @@ export const textWysiwyg = ({
         // normalization (otherwise it'll end up at the end of the text)
         editable.selectionStart = selectionStart;
         editable.selectionEnd = selectionStart;
+      }
+      const label = app.scene.getElement<ExcalidrawTextElement>(element.id);
+      const marks = label ? getTextMarks(label) : [];
+      if (label && marks.length) {
+        setMarks(
+          label,
+          shiftTextMarks(marks, label.originalText, editable.value),
+        );
       }
       onChange(editable.value);
       // once the update, and any scroll it made (see
@@ -1105,6 +1190,11 @@ export const textWysiwyg = ({
     unbindUpdate();
     unsubOnChange();
     unbindOnScroll();
+    ownerDocument.removeEventListener(
+      "selectionchange",
+      publishTextStyleSelection,
+    );
+    editorJotaiStore.set(textStylePanelAtom, null);
     editorBox?.removeEventListener("scroll", onEditorBoxScroll);
     editorBox?.style.removeProperty("left");
     editorBox?.style.removeProperty("right");
@@ -1247,6 +1337,7 @@ export const textWysiwyg = ({
   // handle updates of textElement properties of editing element
   const unbindUpdate = app.scene.onUpdate(() => {
     updateWysiwygStyle();
+    publishTextStyleSelection();
     const isPopupOpened = !!ownerDocument.activeElement?.closest(
       ".properties-content",
     );
@@ -1257,7 +1348,9 @@ export const textWysiwyg = ({
 
   const unbindOnScroll = app.onScrollChangeEmitter.on(() => {
     updateWysiwygStyle();
+    publishTextStyleSelection();
   });
+  ownerDocument.addEventListener("selectionchange", publishTextStyleSelection);
 
   // The browser reveals an out-of-view caret by scrolling the nearest scroll
   // container: the editor's box, which clips it to the canvas area (off a

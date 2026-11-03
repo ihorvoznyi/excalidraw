@@ -424,6 +424,36 @@ export const TextSizeIcon = createIcon(
   tablerIconProps,
 );
 
+const textStyleIcon = (...paths: string[]) =>
+  createIcon(
+    <g strokeWidth="1.5">
+      {paths.map((d) => (
+        <path key={d} d={d} />
+      ))}
+    </g>,
+    tablerIconProps,
+  );
+
+// tabler-icons: bold, italic, underline, strikethrough, highlight
+export const BoldIcon = textStyleIcon(
+  "M7 5h6a3.5 3.5 0 0 1 0 7h-6z",
+  "M13 12h1a3.5 3.5 0 0 1 0 7h-7v-7",
+);
+export const ItalicIcon = textStyleIcon("M11 5h6", "M7 19h6", "M14 5l-4 14");
+export const UnderlineIcon = textStyleIcon(
+  "M7 5v5a5 5 0 0 0 10 0v-5",
+  "M5 19h14",
+);
+export const StrikethroughIcon = textStyleIcon(
+  "M5 12h14",
+  "M16 6.5a4 2 0 0 0 -4 -1.5h-1a3.5 3.5 0 0 0 0 7h2a3.5 3.5 0 0 1 0 7h-1.5a4 2 0 0 1 -4 -1.5",
+);
+export const HighlightIcon = textStyleIcon(
+  "M3 19h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4",
+  "M12.5 5.5l4 4",
+  "M21 15v4h-8l4 -4z",
+);
+
 // modified tabler-icons: photo
 export const ImageIcon = createIcon(
   <g strokeWidth="1.25">

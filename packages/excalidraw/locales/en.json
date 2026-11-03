@@ -31,6 +31,10 @@
     "pasteStyles": "Paste styles",
     "stroke": "Stroke",
     "textColor": "Text color",
+    "italic": "Italic",
+    "underline": "Underline",
+    "strikethrough": "Strikethrough",
+    "highlight": "Highlight",
     "changeStroke": "Change stroke color",
     "background": "Background",
     "changeBackground": "Change background color",
@@ -727,7 +731,7 @@
       "mermaidParseError": "Mermaid syntax error"
     },
     "rateLimit": {
-      "messageLimit": "You've hit your AI limit on the free plan. Try out Excalidraw+ for more or come back tomorrow.",
+      "messageLimit": "You've hit your AI limit. Come back tomorrow.",
       "generalRateLimit": "Hold your horses, you're too fast for us! Please wait a moment before trying again.",
       "messageLimitInputPlaceholder": "You've reached your message limit"
     },

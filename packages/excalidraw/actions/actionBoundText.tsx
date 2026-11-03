@@ -29,6 +29,7 @@ import {
   isStickyNoteElement,
   isTextBindableContainer,
   isTextElement,
+  isTodoElement,
   isUsingAdaptiveRadius,
 } from "@excalidraw/element";
 
@@ -100,7 +101,10 @@ export const actionUnbindText = register({
   predicate: (elements, appState, _, app) => {
     const selectedElements = app.scene.getSelectedElements(appState);
 
-    return selectedElements.some((element) => hasBoundTextElement(element));
+    // a to-do's label is part of it
+    return selectedElements.some(
+      (element) => hasBoundTextElement(element) && !isTodoElement(element),
+    );
   },
   perform: (elements, appState, _, app) => {
     const selectedElements = app.scene.getSelectedElements(appState);
@@ -108,7 +112,7 @@ export const actionUnbindText = register({
     const freedTextElements: NonDeletedExcalidrawElement[] = [];
     selectedElements.forEach((element) => {
       const boundTextElement = getBoundTextElement(element, elementsMap);
-      if (boundTextElement) {
+      if (boundTextElement && !isTodoElement(element)) {
         freedTextElements.push(boundTextElement);
         const originalContainerHeight = getOriginalContainerHeightFromCache(
           element.id,
