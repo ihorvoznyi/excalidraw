@@ -1,10 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow get, write: if true;
-      // never set this to true, otherwise anyone can delete anyone else's drawing.
-      allow list: if false;
+    // collab rooms
+    match /scenes/{scene} {
+      allow get, write: if request.auth != null;
+      // never allow list, otherwise anyone can delete anyone else's drawing.
+    }
+    // canvases, see excalidraw-app/data/canvases.ts
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
     }
   }
 }

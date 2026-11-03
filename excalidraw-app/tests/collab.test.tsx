@@ -49,6 +49,12 @@ vi.mock("../../excalidraw-app/data/firebase.ts", () => {
   };
 });
 
+vi.mock("../../excalidraw-app/data/canvases.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../data/canvases")>()),
+  onUserChange: (callback: (user: object) => void) => callback({}),
+  openCanvas: async () => ({}),
+}));
+
 vi.mock("socket.io-client", () => {
   return {
     default: () => {

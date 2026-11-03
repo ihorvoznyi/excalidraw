@@ -36,7 +36,15 @@ import type { UploadMetadata } from "firebase/storage";
 
 let FIREBASE_CONFIG: Record<string, any>;
 try {
-  FIREBASE_CONFIG = JSON.parse(import.meta.env.VITE_APP_FIREBASE_CONFIG);
+  // FIREBASE_CONFIG = JSON.parse(import.meta.env.VITE_APP_FIREBASE_CONFIG);
+  FIREBASE_CONFIG = {
+    apiKey: "AIzaSyC2ITvaynPBtSmwiuT2TaHIewlaosiexKw",
+    authDomain: "dailyx-os-excalidraw.firebaseapp.com",
+    projectId: "dailyx-os-excalidraw",
+    storageBucket: "dailyx-os-excalidraw.firebasestorage.app",
+    messagingSenderId: "960596001227",
+    appId: "1:960596001227:web:210c94aad602a2e910364e",
+  };
 } catch (error: any) {
   console.warn(
     `Error JSON parsing firebase config. Supplied value: ${
@@ -55,21 +63,21 @@ const lazy = <T>(load: () => Promise<T>) => {
     }));
 };
 
-const _initializeFirebase = lazy(async () => {
+export const loadFirebase = lazy(async () => {
   const sdk = await import("./firebaseSDK");
   return { sdk, app: sdk.initializeApp(FIREBASE_CONFIG) };
 });
 
 const _loadFirestore = lazy(async () => {
-  const { sdk, app } = await _initializeFirebase();
+  const { sdk, app } = await loadFirebase();
   const { getFirestore, doc, getDoc, runTransaction, Bytes } = sdk;
   return { firestore: getFirestore(app), doc, getDoc, runTransaction, Bytes };
 });
 
 const _loadStorage = lazy(async () => {
-  const { sdk, app } = await _initializeFirebase();
-  const { getStorage, ref, uploadBytes } = sdk;
-  return { storage: getStorage(app), ref, uploadBytes };
+  const { sdk, app } = await loadFirebase();
+  const { getStorage, ref, uploadBytes, getBytes } = sdk;
+  return { storage: getStorage(app), ref, uploadBytes, getBytes };
 });
 
 // -----------------------------------------------------------------------------
@@ -81,6 +89,11 @@ export const uploadBytesToFirebase = async (
 ) => {
   const { storage, ref, uploadBytes } = await _loadStorage();
   return uploadBytes(ref(storage, path), data, metadata);
+};
+
+export const downloadBytesFromFirebase = async (path: string) => {
+  const { storage, ref, getBytes } = await _loadStorage();
+  return getBytes(ref(storage, path));
 };
 
 type FirebaseStoredScene = {

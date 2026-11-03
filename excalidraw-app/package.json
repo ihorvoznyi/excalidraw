@@ -52,6 +52,7 @@
     "build:preview": "yarn build && vite preview --port 5000"
   },
   "devDependencies": {
+    "@excalidraw/cli": "0.2.0",
     "vite-plugin-sitemap": "0.7.1"
   }
 }
