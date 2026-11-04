@@ -3,7 +3,9 @@
   "services": {
     "app": {
       "root": ".",
-      "framework": "vite"
+      "framework": "vite",
+      "installCommand": "yarn install",
+      "outputDirectory": "excalidraw-app/build"
     },
     "dev-docs": {
       "root": "dev-docs",
