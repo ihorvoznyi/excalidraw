@@ -269,6 +269,8 @@ export default defineConfig(({ mode }) => {
         },
 
         workbox: {
+          // served by the dev-docs Vercel service, not this app's index.html
+          navigateFallbackDenylist: [/^\/dev-docs(\/|$)/],
           // don't precache fonts, locales and separate chunks
           globIgnores: [
             "fonts.css",

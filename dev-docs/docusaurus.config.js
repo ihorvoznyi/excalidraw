@@ -12,7 +12,7 @@ const config = {
   tagline:
     "For Excalidraw contributors or those integrating the Excalidraw editor",
   url: "https://docs.excalidraw.com",
-  baseUrl: "/",
+  baseUrl: "/dev-docs/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
   favicon: "img/favicon.png",
