@@ -1,32 +1,16 @@
 /**
  * This file deals with saving data state (appState, elements, images, ...)
- * locally to the browser.
+ * of the open canvas to the cloud (see `./canvases.ts`).
  *
  * Notes:
  *
  * - DataState refers to full state of the app: appState, elements, images,
  *   though some state is saved separately (collab username, library) for one
- *   reason or another. We also save different data to different storage
- *   (localStorage, indexedDB).
+ *   reason or another, and stays in the browser (localStorage, indexedDB).
  */
 
-import { clearAppStateForLocalStorage } from "@excalidraw/excalidraw/appState";
-import {
-  CANVAS_SEARCH_TAB,
-  DEFAULT_SIDEBAR,
-  debounce,
-} from "@excalidraw/common";
-import {
-  createStore,
-  entries,
-  del,
-  getMany,
-  set,
-  setMany,
-  get,
-} from "idb-keyval";
-
-import { getNonDeletedElements } from "@excalidraw/element";
+import { debounce } from "@excalidraw/common";
+import { createStore, get, set } from "idb-keyval";
 
 import type { LibraryPersistedData } from "@excalidraw/excalidraw/data/library";
 import type { ImportedDataState } from "@excalidraw/excalidraw/data/types";
@@ -38,98 +22,36 @@ import type {
 } from "@excalidraw/excalidraw/types";
 import type { MaybePromise } from "@excalidraw/common/utility-types";
 
-import { appJotaiStore, atom } from "../app-jotai";
+import { appJotaiStore } from "../app-jotai";
 import { SAVE_TO_LOCAL_STORAGE_TIMEOUT, STORAGE_KEYS } from "../app_constants";
 
+import { canvasFilePath, currentCanvasIdAtom, saveCanvas } from "./canvases";
 import { FileManager } from "./FileManager";
 import { FileStatusStore } from "./fileStatusStore";
+import { downloadBytesFromFirebase, uploadBytesToFirebase } from "./firebase";
 import { Locker } from "./Locker";
-import { updateBrowserStateVersion } from "./tabSync";
 
+// images saved before canvases moved to the cloud
 const filesStore = createStore("files-db", "files-store");
 
-export const localStorageQuotaExceededAtom = atom(false);
-
-class LocalFileManager extends FileManager {
-  clearObsoleteFiles = async (opts: { currentFileIds: FileId[] }) => {
-    await entries(filesStore).then((entries) => {
-      for (const [id, imageData] of entries as [FileId, BinaryFileData][]) {
-        // if image is unused (not on canvas) & is older than 1 day, delete it
-        // from storage. We check `lastRetrieved` we care about the last time
-        // the image was used (loaded on canvas), not when it was initially
-        // created.
-        if (
-          (!imageData.lastRetrieved ||
-            Date.now() - imageData.lastRetrieved > 24 * 3600 * 1000) &&
-          !opts.currentFileIds.includes(id as FileId)
-        ) {
-          del(id, filesStore);
-        }
-      }
-    });
-  };
-}
-
-const saveDataStateToLocalStorage = (
-  elements: readonly ExcalidrawElement[],
-  appState: AppState,
-) => {
-  const localStorageQuotaExceeded = appJotaiStore.get(
-    localStorageQuotaExceededAtom,
+const uploadFile = (fileData: BinaryFileData) =>
+  uploadBytesToFirebase(
+    canvasFilePath(fileData.id),
+    new TextEncoder().encode(JSON.stringify(fileData)),
   );
-  try {
-    const _appState = clearAppStateForLocalStorage(appState);
-
-    if (
-      _appState.openSidebar?.name === DEFAULT_SIDEBAR.name &&
-      _appState.openSidebar.tab === CANVAS_SEARCH_TAB
-    ) {
-      _appState.openSidebar = null;
-    }
-
-    localStorage.setItem(
-      STORAGE_KEYS.LOCAL_STORAGE_ELEMENTS,
-      JSON.stringify(getNonDeletedElements(elements)),
-    );
-    localStorage.setItem(
-      STORAGE_KEYS.LOCAL_STORAGE_APP_STATE,
-      JSON.stringify(_appState),
-    );
-    updateBrowserStateVersion(STORAGE_KEYS.VERSION_DATA_STATE);
-    if (localStorageQuotaExceeded) {
-      appJotaiStore.set(localStorageQuotaExceededAtom, false);
-    }
-  } catch (error: any) {
-    // Unable to access window.localStorage
-    console.error(error);
-    if (isQuotaExceededError(error) && !localStorageQuotaExceeded) {
-      appJotaiStore.set(localStorageQuotaExceededAtom, true);
-    }
-  }
-};
-
-const isQuotaExceededError = (error: any) => {
-  return (
-    error instanceof DOMException &&
-    (error.name === "QuotaExceededError" ||
-      error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
-      error.name === "QUOTA_EXCEEDED_ERR" ||
-      error.code === 22 ||
-      error.code === 1014)
-  );
-};
 
 type SavingLockTypes = "collaboration";
 
 export class LocalData {
   private static _save = debounce(
     async (
+      canvasId: string,
       elements: readonly ExcalidrawElement[],
       appState: AppState,
       files: BinaryFiles,
       onFilesSaved: () => void,
     ) => {
-      saveDataStateToLocalStorage(elements, appState);
+      saveCanvas(canvasId, elements, appState).catch(console.error);
 
       await this.fileStorage.saveFiles({
         elements,
@@ -147,9 +69,11 @@ export class LocalData {
     files: BinaryFiles,
     onFilesSaved: () => void,
   ) => {
-    // we need to make the `isSavePaused` check synchronously (undebounced)
-    if (!this.isSavePaused()) {
-      this._save(elements, appState, files, onFilesSaved);
+    // we need to make the `isSavePaused` check synchronously (undebounced),
+    // and pin the canvas the elements belong to before it can change
+    const canvasId = appJotaiStore.get(currentCanvasIdAtom);
+    if (!this.isSavePaused() && canvasId && !appState.isLoading) {
+      this._save(canvasId, elements, appState, files, onFilesSaved);
     }
   };
 
@@ -173,54 +97,40 @@ export class LocalData {
 
   // ---------------------------------------------------------------------------
 
-  static fileStorage = new LocalFileManager({
+  static fileStorage = new FileManager({
     onFileStatusChange: FileStatusStore.updateStatuses.bind(FileStatusStore),
-    getFiles(ids) {
-      return getMany(ids, filesStore).then(
-        async (filesData: (BinaryFileData | undefined)[]) => {
-          const loadedFiles: BinaryFileData[] = [];
-          const erroredFiles = new Map<FileId, true>();
+    async getFiles(ids) {
+      const loadedFiles: BinaryFileData[] = [];
+      const erroredFiles = new Map<FileId, true>();
 
-          const filesToSave: [FileId, BinaryFileData][] = [];
-
-          filesData.forEach((data, index) => {
-            const id = ids[index];
-            if (data) {
-              const _data: BinaryFileData = {
-                ...data,
-                lastRetrieved: Date.now(),
-              };
-              filesToSave.push([id, _data]);
-              loadedFiles.push(_data);
+      await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const bytes = await downloadBytesFromFirebase(canvasFilePath(id));
+            loadedFiles.push(JSON.parse(new TextDecoder().decode(bytes)));
+          } catch (error: any) {
+            const fileData = await get<BinaryFileData>(id, filesStore);
+            if (fileData) {
+              loadedFiles.push(fileData);
+              uploadFile(fileData).catch(console.error);
             } else {
+              console.error(error);
               erroredFiles.set(id, true);
             }
-          });
-
-          try {
-            // save loaded files back to storage with updated `lastRetrieved`
-            setMany(filesToSave, filesStore);
-          } catch (error) {
-            console.warn(error);
           }
-
-          return { loadedFiles, erroredFiles };
-        },
+        }),
       );
+
+      return { loadedFiles, erroredFiles };
     },
     async saveFiles({ addedFiles }) {
       const savedFiles = new Map<FileId, BinaryFileData>();
       const erroredFiles = new Map<FileId, BinaryFileData>();
 
-      // before we use `storage` event synchronization, let's update the flag
-      // optimistically. Hopefully nothing fails, and an IDB read executed
-      // before an IDB write finishes will read the latest value.
-      updateBrowserStateVersion(STORAGE_KEYS.VERSION_FILES);
-
       await Promise.all(
         [...addedFiles].map(async ([id, fileData]) => {
           try {
-            await set(id, fileData, filesStore);
+            await uploadFile(fileData);
             savedFiles.set(id, fileData);
           } catch (error: any) {
             console.error(error);

@@ -1,20 +1,34 @@
 import {
-  loginIcon,
-  ExcalLogo,
+  createIcon,
   eyeIcon,
+  LoadIcon,
 } from "@excalidraw/excalidraw/components/icons";
-import { useI18n } from "@excalidraw/excalidraw/i18n";
 import { MainMenu } from "@excalidraw/excalidraw/index";
+import { useExcalidrawAPI } from "@excalidraw/excalidraw";
 import React from "react";
 
-import { isDevEnv } from "@excalidraw/common";
+import { DEFAULT_SIDEBAR, isDevEnv } from "@excalidraw/common";
 
 import type { Theme } from "@excalidraw/element/types";
 
 import { LanguageList } from "../app-language/LanguageList";
-import { isExcalidrawPlusSignedUser } from "../app_constants";
+import { signOut } from "../data/canvases";
+import { LocalData } from "../data/LocalData";
 
 import { saveDebugState } from "./DebugCanvas";
+
+const signOutIcon = createIcon(
+  <path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2M9 12h12l-3 -3M18 15l3 -3" />,
+  {
+    width: 24,
+    height: 24,
+    fill: "none",
+    strokeWidth: 2,
+    stroke: "currentColor",
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+  },
+);
 
 export const AppMainMenu: React.FC<{
   onCollabDialogOpen: () => any;
@@ -23,9 +37,21 @@ export const AppMainMenu: React.FC<{
   theme: Theme | "system";
   refresh: () => void;
 }> = React.memo((props) => {
-  const { t } = useI18n();
+  const excalidrawAPI = useExcalidrawAPI();
   return (
     <MainMenu>
+      <MainMenu.Item
+        icon={LoadIcon}
+        onSelect={() =>
+          excalidrawAPI?.toggleSidebar({
+            name: DEFAULT_SIDEBAR.name,
+            tab: "canvases",
+            force: true,
+          })
+        }
+      >
+        Canvases
+      </MainMenu.Item>
       <MainMenu.DefaultItems.LoadScene />
       <MainMenu.DefaultItems.SaveToActiveFile />
       <MainMenu.DefaultItems.Export />
@@ -41,25 +67,15 @@ export const AppMainMenu: React.FC<{
       <MainMenu.DefaultItems.Help />
       <MainMenu.DefaultItems.ClearCanvas />
       <MainMenu.Separator />
-      <MainMenu.ItemLink
-        icon={ExcalLogo}
-        href={`${
-          import.meta.env.VITE_APP_PLUS_LP
-        }/plus?utm_source=excalidraw&utm_medium=app&utm_content=hamburger`}
-        className=""
+      <MainMenu.Item
+        icon={signOutIcon}
+        onSelect={() => {
+          LocalData.flushSave();
+          signOut();
+        }}
       >
-        Excalidraw+
-      </MainMenu.ItemLink>
-      <MainMenu.DefaultItems.Socials />
-      <MainMenu.ItemLink
-        icon={loginIcon}
-        href={`${import.meta.env.VITE_APP_PLUS_APP}${
-          isExcalidrawPlusSignedUser ? "" : "/sign-up"
-        }?utm_source=signin&utm_medium=app&utm_content=hamburger`}
-        className="highlighted"
-      >
-        {isExcalidrawPlusSignedUser ? t("labels.signIn") : t("labels.signUp")}
-      </MainMenu.ItemLink>
+        Sign out
+      </MainMenu.Item>
       {isDevEnv() && (
         <MainMenu.Item
           icon={eyeIcon}

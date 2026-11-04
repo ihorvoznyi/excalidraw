@@ -2,6 +2,7 @@ import {
   getCommonFrameId,
   getFrameChildrenInsertionIndex,
   getContainerElement,
+  hasTextStyles,
   isElementInViewport,
   isTextElement,
 } from "@excalidraw/element";
@@ -257,11 +258,17 @@ export class Renderer {
       }
 
       // we don't want to render text element that's being currently edited
-      // (it's rendered on remote only)
+      // (it's rendered on remote only), unless it's styled: the editor's
+      // text is transparent then, over the canvas'
       if (
         !editingTextElement ||
         editingTextElement.type !== "text" ||
-        element.id !== editingTextElement.id
+        element.id !== editingTextElement.id ||
+        (isTextElement(element) &&
+          hasTextStyles(
+            element,
+            getContainerElement(element, this.scene.getNonDeletedElementsMap()),
+          ))
       ) {
         elementsMap.set(element.id, element);
       }

@@ -73,7 +73,10 @@ import {
 import { getContainingFrame } from "./frame";
 import { getCornerRadius } from "./utils";
 
-import { ShapeCache } from "./shape";
+import { ShapeCache, generateTodoShapes } from "./shape";
+import { isTodoElement } from "./todo";
+import { isCodeElement } from "./code";
+import { drawTextRuns, getTextRuns } from "./textRuns";
 import {
   getStickyNoteFooter,
   getStickyNotePathCommands,
@@ -218,6 +221,10 @@ export interface ExcalidrawElementWithCanvas {
   canvasOffsetY: number;
   imageCrop: ExcalidrawImageElement["crop"] | null;
   containingFrameOpacity: number;
+  /** a to-do draws from its label too */
+  boundTextVersion?: number;
+  /** a code block's label is highlighted per its language */
+  containerVersion?: number;
 }
 
 const cappedElementCanvasSize = (
@@ -324,7 +331,7 @@ const generateElementCanvas = (
 
   const rc = rough.canvas(canvas);
 
-  drawElementOnCanvas(element, rc, context, renderConfig);
+  drawElementOnCanvas(element, rc, context, renderConfig, elementsMap);
 
   context.restore();
 
@@ -462,6 +469,7 @@ const drawElementOnCanvas = (
   rc: RoughCanvas,
   context: CanvasRenderingContext2D,
   renderConfig: StaticCanvasRenderConfig,
+  elementsMap: ElementsMap,
 ) => {
   switch (element.type) {
     case "stickynote": {
@@ -506,7 +514,17 @@ const drawElementOnCanvas = (
       context.lineJoin = "round";
       context.lineCap = "round";
 
-      rc.draw(ShapeCache.generateElementShape(element, renderConfig));
+      if (isTodoElement(element)) {
+        generateTodoShapes(
+          element,
+          getBoundTextElement(element, elementsMap),
+          rc.generator,
+          renderConfig.theme === THEME.DARK,
+          renderConfig.renderEnvironment,
+        ).forEach((shape) => rc.draw(shape));
+      } else {
+        rc.draw(ShapeCache.generateElementShape(element, renderConfig));
+      }
       break;
     }
     case "arrow":
@@ -703,6 +721,23 @@ const drawElementOnCanvas = (
             lineHeightPx,
           );
 
+          const runLines = getTextRuns(
+            element,
+            getContainerElement(element, elementsMap),
+            getRenderEnvironment(renderConfig.renderEnvironment),
+          );
+          if (runLines) {
+            drawTextRuns(
+              context,
+              element,
+              runLines,
+              lineHeightPx,
+              verticalOffset,
+              renderConfig.theme === THEME.DARK,
+            );
+            return;
+          }
+
           for (let index = 0; index < lines.length; index++) {
             context.fillText(
               lines[index],
@@ -745,6 +780,15 @@ const generateElementWithCanvas = (
 
   const containingFrameOpacity =
     getContainingFrame(element, elementsMap)?.opacity || 100;
+  const boundTextVersion = isTodoElement(element)
+    ? getBoundTextElement(element, elementsMap)?.version
+    : undefined;
+  const container = isTextElement(element)
+    ? getContainerElement(element, elementsMap)
+    : null;
+  const containerVersion = isCodeElement(container)
+    ? container?.version
+    : undefined;
 
   if (
     !prevElementWithCanvas ||
@@ -753,7 +797,9 @@ const generateElementWithCanvas = (
     prevElementWithCanvas.deviceScale !== renderConfig.scale ||
     prevElementWithCanvas.environment !== renderEnvironment ||
     prevElementWithCanvas.imageCrop !== imageCrop ||
-    prevElementWithCanvas.containingFrameOpacity !== containingFrameOpacity
+    prevElementWithCanvas.containingFrameOpacity !== containingFrameOpacity ||
+    prevElementWithCanvas.boundTextVersion !== boundTextVersion ||
+    prevElementWithCanvas.containerVersion !== containerVersion
   ) {
     const elementWithCanvas = generateElementCanvas(
       element,
@@ -766,6 +812,8 @@ const generateElementWithCanvas = (
     if (!elementWithCanvas) {
       return null;
     }
+    elementWithCanvas.boundTextVersion = boundTextVersion;
+    elementWithCanvas.containerVersion = containerVersion;
 
     elementWithCanvasCache.set(element, elementWithCanvas);
 
@@ -1129,7 +1177,13 @@ const drawElement = (
           context.translate(cx, cy);
           context.rotate(element.angle);
           context.translate(-shiftX, -shiftY);
-          drawElementOnCanvas(element, rc, context, renderConfig);
+          drawElementOnCanvas(
+            element,
+            rc,
+            context,
+            renderConfig,
+            allElementsMap,
+          );
         });
       } else {
         const elementWithCanvas = generateElementWithCanvas(
@@ -1234,7 +1288,13 @@ const drawElement = (
               context.clip("evenodd");
               context.rotate(element.angle);
               context.translate(-shiftX, -shiftY);
-              drawElementOnCanvas(element, rc, context, renderConfig);
+              drawElementOnCanvas(
+                element,
+                rc,
+                context,
+                renderConfig,
+                allElementsMap,
+              );
             });
           } else {
             context.rotate(element.angle);
@@ -1245,7 +1305,13 @@ const drawElement = (
             }
 
             context.translate(-shiftX, -shiftY);
-            drawElementOnCanvas(element, rc, context, renderConfig);
+            drawElementOnCanvas(
+              element,
+              rc,
+              context,
+              renderConfig,
+              allElementsMap,
+            );
           }
         });
         // not exporting → optimized rendering (cache & render from element

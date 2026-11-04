@@ -26,6 +26,8 @@ import { getPositionAfterHeightChange } from "./sizeHelpers";
 import { updateStickyNoteLayout } from "./stickyNote";
 import { measureText } from "./textMeasurements";
 import { wrapText } from "./textWrapping";
+import { getTodoInset, isTodoElement } from "./todo";
+import { CODE_PADDING, getCodePadding, isCodeElement } from "./code";
 
 import {
   isBoundToContainer,
@@ -130,6 +132,7 @@ export const redrawTextBoundingBox = (
       const nextHeight = computeContainerDimensionForBoundText(
         metrics.height,
         container.type,
+        getCodePadding(container, "y"),
       );
       scene.mutateElement(container, { height: nextHeight });
       updateOriginalContainerCache(container.id, nextHeight);
@@ -139,6 +142,7 @@ export const redrawTextBoundingBox = (
       const nextWidth = computeContainerDimensionForBoundText(
         metrics.width,
         container.type,
+        getCodePadding(container, "x"),
       );
       scene.mutateElement(container, { width: nextWidth });
     }
@@ -223,6 +227,7 @@ export const handleBindTextResize = (
       containerHeight = computeContainerDimensionForBoundText(
         nextHeight,
         container.type,
+        getCodePadding(container, "y"),
       );
 
       // Crossing the opposite edge swaps the anchor for text-driven growth.
@@ -274,6 +279,7 @@ export const computeBoundTextPosition = (
     );
   }
   const containerCoords = getContainerCoords(container);
+  containerCoords.x += getTodoInset(container, boundTextElement);
   const maxContainerHeight = getBoundTextMaxHeight(container, boundTextElement);
   const maxContainerWidth = getBoundTextMaxWidth(container, boundTextElement);
 
@@ -313,15 +319,17 @@ export const computeBoundTextPosition = (
   if (angle !== 0) {
     // A sticky's footer makes its body asymmetric. The body still rotates
     // about the note's center, rather than about its own (higher) center.
-    const contentCenter = isStickyNoteElement(container)
-      ? pointFrom(
-          container.x + container.width / 2,
-          container.y + container.height / 2,
-        )
-      : pointFrom(
-          containerCoords.x + maxContainerWidth / 2,
-          containerCoords.y + maxContainerHeight / 2,
-        );
+    // Same for a to-do's label, offset by its checkbox.
+    const contentCenter =
+      isStickyNoteElement(container) || isTodoElement(container)
+        ? pointFrom(
+            container.x + container.width / 2,
+            container.y + container.height / 2,
+          )
+        : pointFrom(
+            containerCoords.x + maxContainerWidth / 2,
+            containerCoords.y + maxContainerHeight / 2,
+          );
     const textCenter = pointFrom(
       x + boundTextElement.width / 2,
       y + boundTextElement.height / 2,
@@ -411,9 +419,12 @@ export const getContainerCenter = (
 export const getContainerCoords = (container: ExcalidrawElement) => {
   const padding = isStickyNoteElement(container)
     ? STICKY_NOTE_PADDING
+    : isCodeElement(container)
+    ? CODE_PADDING
     : BOUND_TEXT_PADDING;
   let offsetX = padding;
-  let offsetY = padding;
+  // a code block's language dropdown sits above its label
+  let offsetY = isCodeElement(container) ? padding * 2 : padding;
 
   if (container.type === "ellipse") {
     // The derivation of coordinates is explained in https://github.com/excalidraw/excalidraw/pull/6172
@@ -536,9 +547,10 @@ export const isValidTextContainer = (element: {
 export const computeContainerDimensionForBoundText = (
   dimension: number,
   containerType: ExtractSetType<typeof VALID_CONTAINER_TYPES>,
+  /** a code block's (see getCodePadding) */
+  padding = BOUND_TEXT_PADDING * 2,
 ) => {
   dimension = Math.ceil(dimension);
-  const padding = BOUND_TEXT_PADDING * 2;
 
   if (containerType === "ellipse") {
     return Math.round(((dimension + padding) / Math.sqrt(2)) * 2);
@@ -576,10 +588,11 @@ export const getBoundTextMaxWidth = (
   }
   return (
     width -
-    (isStickyNoteElement(container)
-      ? STICKY_NOTE_PADDING
-      : BOUND_TEXT_PADDING) *
-      2
+    (getCodePadding(container, "x") ??
+      (isStickyNoteElement(container)
+        ? STICKY_NOTE_PADDING
+        : BOUND_TEXT_PADDING) * 2) -
+    getTodoInset(container, boundTextElement)
   );
 };
 
@@ -610,7 +623,7 @@ export const getBoundTextMaxHeight = (
     // Math.round(height / 2) - https://github.com/excalidraw/excalidraw/pull/6265
     return Math.round(height / 2) - BOUND_TEXT_PADDING * 2;
   }
-  return height - BOUND_TEXT_PADDING * 2;
+  return height - (getCodePadding(container, "y") ?? BOUND_TEXT_PADDING * 2);
 };
 
 /** retrieves text from text elements and concatenates to a single string */
