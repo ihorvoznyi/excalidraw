@@ -16,13 +16,25 @@ import type { AppState } from "@excalidraw/excalidraw/types";
 import { appJotaiStore, atom } from "../app-jotai";
 
 import { loadFirebase } from "./firebase";
-import { importFromLocalStorage } from "./localStorage";
 
 import type { User } from "firebase/auth";
 
 export type Canvas = { id: string; name: string; updatedAt: number };
 
 export const currentCanvasIdAtom = atom<string | null>(null);
+
+export const getCanvasIdFromPath = () =>
+  window.location.pathname.match(/^\/s\/(\w+)\/?$/)?.[1];
+
+/** `/s/{id}`, or a shared scene or collaboration link, else the list at `/` */
+export const isEditorRoute = () =>
+  !!getCanvasIdFromPath() || /^#(json|url|room)=/.test(window.location.hash);
+
+/** goes to canvas `id`, or to the list at `/` */
+export const goToCanvas = (id?: string) => {
+  window.history.pushState({}, "", id ? `/s/${id}` : "/");
+  window.dispatchEvent(new PopStateEvent("popstate"));
+};
 
 let uid = "";
 const userPath = (...segments: string[]) =>
@@ -108,27 +120,14 @@ export const createCanvas = async (
   return canvas.id;
 };
 
-/** opens canvas `id`, else the most recently updated one, else a new one */
-export const openCanvas = async (id?: string): Promise<ImportedDataState> => {
+/** opens canvas `id`, or returns null if there is none */
+export const openCanvas = async (
+  id: string,
+): Promise<ImportedDataState | null> => {
   const { sdk, db } = await loadFirestore();
-  if (!id) {
-    const recent = await sdk.getDocs(
-      sdk.query(
-        sdk.collection(db, userPath("canvases")),
-        sdk.orderBy("updatedAt", "desc"),
-        sdk.limit(1),
-      ),
-    );
-    if (recent.empty) {
-      // first sign-in: the canvas this browser had becomes the first one
-      const { elements, appState } = importFromLocalStorage();
-      return openCanvas(await createCanvas(elements, appState ?? {}));
-    }
-    id = recent.docs[0].id;
-  }
   const scene = await sdk.getDoc(sdk.doc(db, userPath("scenes", id)));
   if (!scene.exists()) {
-    return openCanvas();
+    return null;
   }
   const data = JSON.parse(
     await gunzip(scene.data().data.toUint8Array() as Uint8Array<ArrayBuffer>),

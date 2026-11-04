@@ -19,7 +19,9 @@ import {
   getBoundTextElement,
   hitElementBoundingBox,
   isCodeElement,
+  isTextElement,
   newElementWith,
+  refreshTextDimensions,
 } from "@excalidraw/element";
 import { pointFrom, pointRotateRads } from "@excalidraw/math";
 import { useEffect, useRef, useState } from "react";
@@ -150,12 +152,30 @@ export const CodeBlockControls = () => {
               key={language}
               selected={language === block.language}
               onSelect={() => {
+                const elements = api.getSceneElementsIncludingDeleted();
+                const elementsMap = arrayToMap(elements);
+                const container = elements.find((el) => el.id === block.id);
+                if (container?.type !== "rectangle") {
+                  return;
+                }
+                const nextContainer = newElementWith(container, {
+                  customData: { ...container.customData, code: { language } },
+                });
                 api.updateScene({
-                  elements: api.getSceneElementsIncludingDeleted().map((el) =>
-                    el.id === block.id
-                      ? newElementWith(el, {
-                          customData: { ...el.customData, code: { language } },
-                        })
+                  elements: elements.map((el) =>
+                    el === container
+                      ? nextContainer
+                      : isTextElement(el) && el.containerId === block.id
+                      ? // markdown links collapse, so the text wraps anew
+                        newElementWith(
+                          el,
+                          refreshTextDimensions(
+                            el,
+                            nextContainer,
+                            elementsMap,
+                            el.originalText,
+                          ) ?? {},
+                        )
                       : el,
                   ),
                   captureUpdate: CaptureUpdateAction.IMMEDIATELY,

@@ -12,7 +12,7 @@ import { DEFAULT_SIDEBAR, isDevEnv } from "@excalidraw/common";
 import type { Theme } from "@excalidraw/element/types";
 
 import { LanguageList } from "../app-language/LanguageList";
-import { signOut } from "../data/canvases";
+import { goToCanvas, signOut } from "../data/canvases";
 import { LocalData } from "../data/LocalData";
 
 import { saveDebugState } from "./DebugCanvas";
@@ -31,9 +31,6 @@ const signOutIcon = createIcon(
 );
 
 export const AppMainMenu: React.FC<{
-  onCollabDialogOpen: () => any;
-  isCollaborating: boolean;
-  isCollabEnabled: boolean;
   theme: Theme | "system";
   refresh: () => void;
 }> = React.memo((props) => {
@@ -52,19 +49,17 @@ export const AppMainMenu: React.FC<{
       >
         Canvases
       </MainMenu.Item>
+      <MainMenu.Item
+        onSelect={() => {
+          LocalData.flushSave();
+          goToCanvas();
+        }}
+      >
+        All canvases
+      </MainMenu.Item>
       <MainMenu.DefaultItems.LoadScene />
       <MainMenu.DefaultItems.SaveToActiveFile />
       <MainMenu.DefaultItems.Export />
-      <MainMenu.DefaultItems.SaveAsImage />
-      {props.isCollabEnabled && (
-        <MainMenu.DefaultItems.LiveCollaborationTrigger
-          isCollaborating={props.isCollaborating}
-          onSelect={() => props.onCollabDialogOpen()}
-        />
-      )}
-      <MainMenu.DefaultItems.CommandPalette className="highlighted" />
-      <MainMenu.DefaultItems.SearchMenu />
-      <MainMenu.DefaultItems.Help />
       <MainMenu.DefaultItems.ClearCanvas />
       <MainMenu.Separator />
       <MainMenu.Item

@@ -1,0 +1,28 @@
+.excalidraw.home {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  box-sizing: border-box;
+  padding: 3rem 1rem 1rem;
+  background-color: var(--default-bg-color);
+  color: var(--color-on-surface);
+
+  .home__list {
+    width: 100%;
+    max-width: 28rem;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .home__sign-out {
+    font-family: var(--ui-font);
+    color: var(--color-on-surface);
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.6;
+  }
+}

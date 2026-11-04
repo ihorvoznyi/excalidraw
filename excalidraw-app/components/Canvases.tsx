@@ -11,6 +11,7 @@ import {
   createCanvas,
   currentCanvasIdAtom,
   deleteCanvas,
+  goToCanvas,
   renameCanvas,
   subscribeToCanvases,
 } from "../data/canvases";
@@ -18,10 +19,6 @@ import {
 import "./Canvases.scss";
 
 import type { Canvas } from "../data/canvases";
-
-const openCanvas = (id: string) => {
-  window.location.hash = `canvas=${id}`;
-};
 
 export const Canvases = () => {
   const currentId = useAtomValue(currentCanvasIdAtom);
@@ -37,7 +34,7 @@ export const Canvases = () => {
     await deleteCanvas(canvas.id);
     if (canvas.id === currentId) {
       const next = canvases.find((other) => other.id !== canvas.id);
-      openCanvas(next?.id ?? (await createCanvas()));
+      goToCanvas(next?.id);
     }
   };
 
@@ -46,7 +43,7 @@ export const Canvases = () => {
       <button
         type="button"
         className="canvases__new"
-        onClick={async () => openCanvas(await createCanvas())}
+        onClick={async () => goToCanvas(await createCanvas())}
       >
         {PlusIcon}
         New canvas
@@ -85,7 +82,7 @@ export const Canvases = () => {
               <button
                 type="button"
                 className="canvases__open"
-                onClick={() => openCanvas(canvas.id)}
+                onClick={() => goToCanvas(canvas.id)}
               >
                 <span className="canvases__name">{canvas.name}</span>
                 <span className="canvases__date">

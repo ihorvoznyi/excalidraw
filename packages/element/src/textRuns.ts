@@ -6,7 +6,12 @@ import {
   isRTL,
 } from "@excalidraw/common";
 
-import { getCodeStyles, isCodeElement } from "./code";
+import {
+  collapseCodeLinks,
+  getCodeDisplayText,
+  getCodeStyles,
+  isCodeElement,
+} from "./code";
 import { getLineWidth } from "./textMeasurements";
 
 import type { RenderEnvironment } from "./renderEnvironment";
@@ -27,6 +32,8 @@ export type TextStyle = {
   strike?: boolean;
   color?: string;
   background?: string;
+  /** a markdown link's target, on its alias */
+  href?: string;
 };
 
 /** a styled range of `originalText`, in UTF-16 code units */
@@ -46,6 +53,7 @@ const STYLE_KEYS = [
   "strike",
   "color",
   "background",
+  "href",
 ] as const;
 
 const BOLD_STROKE = 1 / 28;
@@ -182,12 +190,16 @@ export const getTextRuns = (
   if (!hasTextStyles(label, container)) {
     return null;
   }
-  const original = label.originalText;
-  const styles = getCharStyles(
+  const original = getCodeDisplayText(label.originalText, container);
+  const charStyles = getCharStyles(
     getTextMarks(label),
-    original.length,
+    label.originalText.length,
     getCodeStyles(label, container),
   );
+  const styles =
+    original === label.originalText
+      ? charStyles
+      : collapseCodeLinks(label.originalText, charStyles);
 
   const lines: TextRun[][] = [[]];
   let index = 0;
@@ -238,6 +250,18 @@ export const getTextRuns = (
   }
   return lines;
 };
+
+/** the link at a point of a text, in its own unrotated frame from its corner */
+export const getTextLinkAt = (
+  label: ExcalidrawTextElement,
+  container: ExcalidrawElement | null,
+  x: number,
+  y: number,
+) =>
+  getTextRuns(label, container)?.[
+    Math.floor(y / (label.fontSize * label.lineHeight))
+  ]?.find((run) => run.style.href && x >= run.x && x < run.x + run.width)?.style
+    .href;
 
 export const drawTextRuns = (
   context: CanvasRenderingContext2D,

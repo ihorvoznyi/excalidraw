@@ -1,13 +1,22 @@
-import { ROUGHNESS, ROUNDNESS } from "@excalidraw/common";
+import {
+  ROUGHNESS,
+  ROUNDNESS,
+  arrayToMap,
+  viewportCoordsToSceneCoords,
+} from "@excalidraw/common";
 import {
   CODE_LABEL,
   CODE_LANGUAGES,
   CaptureUpdateAction,
   convertToExcalidrawElements,
+  getContainerElement,
+  getTextLinkAt,
   isTextElement,
   newElementWith,
 } from "@excalidraw/element";
+import { pointFrom, pointRotateRads } from "@excalidraw/math";
 
+import type { Radians } from "@excalidraw/math";
 import type { ExcalidrawTextElement } from "@excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
@@ -65,7 +74,49 @@ export const registerCode = (api: ExcalidrawImperativeAPI) => {
   // a text starting with "```sql" becomes a code block once its edit is
   // committed
   let editingId: string | null = null;
-  return api.onChange((elements, appState) => {
+
+  // Cmd/Ctrl+click on a markdown link's alias opens it
+  const onPointerDown = (event: PointerEvent) => {
+    if (
+      !(event.metaKey || event.ctrlKey) ||
+      !(event.target instanceof HTMLCanvasElement)
+    ) {
+      return;
+    }
+    const { x, y } = viewportCoordsToSceneCoords(event, api.getAppState());
+    const elements = api.getSceneElements();
+    const elementsMap = arrayToMap(elements);
+    for (const label of elements) {
+      const container = isTextElement(label)
+        ? getContainerElement(label, elementsMap)
+        : null;
+      if (!isTextElement(label) || !container) {
+        continue;
+      }
+      const [localX, localY] = pointRotateRads(
+        pointFrom(x, y),
+        pointFrom(
+          container.x + container.width / 2,
+          container.y + container.height / 2,
+        ),
+        -container.angle as Radians,
+      );
+      const href = getTextLinkAt(
+        label,
+        container,
+        localX - label.x,
+        localY - label.y,
+      );
+      if (href) {
+        event.preventDefault();
+        event.stopPropagation();
+        window.open(href, "_blank", "noopener,noreferrer");
+        return;
+      }
+    }
+  };
+  window.addEventListener("pointerdown", onPointerDown, true);
+  const offChange = api.onChange((elements, appState) => {
     const committedId = editingId;
     editingId = appState.editingTextElement?.id ?? null;
     const snippet =
@@ -92,4 +143,8 @@ export const registerCode = (api: ExcalidrawImperativeAPI) => {
       });
     }
   });
+  return () => {
+    offChange();
+    window.removeEventListener("pointerdown", onPointerDown, true);
+  };
 };

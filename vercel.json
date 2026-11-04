@@ -5,6 +5,7 @@
       "root": ".",
       "framework": "vite",
       "installCommand": "yarn install",
+      "rewrites": [{ "source": "/s/(.*)", "destination": "/index.html" }],
       "outputDirectory": "excalidraw-app/build"
     },
     "dev-docs": {

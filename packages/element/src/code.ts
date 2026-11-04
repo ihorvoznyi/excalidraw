@@ -109,3 +109,38 @@ export const getCodeStyles = (
   );
   return styles;
 };
+
+const LINK = /\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g;
+const LINK_COLOR = "#2c61a1";
+
+const isMarkdownBlock = (container: ExcalidrawElement | null) =>
+  isCodeElement(container) &&
+  container?.customData?.code.language === "markdown";
+
+/** a markdown block's text as shown: `[alias](url)` links collapsed to `alias` */
+export const getCodeDisplayText = (
+  text: string,
+  container: ExcalidrawElement | null,
+) => (isMarkdownBlock(container) ? text.replace(LINK, "$1") : text);
+
+/**
+ * `styles` (per unit of the original text) for the display text, with each
+ * link's alias styled as a link carrying its `href`.
+ */
+export const collapseCodeLinks = (original: string, styles: TextStyle[]) => {
+  const out: TextStyle[] = [];
+  let last = 0;
+  for (const match of original.matchAll(LINK)) {
+    out.push(...styles.slice(last, match.index));
+    for (let i = 0; i < match[1].length; i++) {
+      out.push({
+        ...styles[match.index + 1 + i],
+        color: LINK_COLOR,
+        underline: true,
+        href: match[2],
+      });
+    }
+    last = match.index + match[0].length;
+  }
+  return out.concat(styles.slice(last));
+};

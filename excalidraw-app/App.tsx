@@ -99,6 +99,9 @@ import { updateStaleImageStatuses } from "./data/FileManager";
 import { FileStatusStore } from "./data/fileStatusStore";
 import {
   createCanvas,
+  currentCanvasIdAtom,
+  getCanvasIdFromPath,
+  isEditorRoute,
   isSavingCanvas,
   onUserChange,
   openCanvas,
@@ -125,6 +128,7 @@ import { AIComponents } from "./components/AI";
 import "./index.scss";
 
 import { AppSidebar } from "./components/AppSidebar";
+import { Home } from "./components/Home";
 import { SignIn } from "./components/SignIn";
 import { CodeBlockControls } from "./toolbox/CodeBlockControls";
 import { registerCode } from "./toolbox/code";
@@ -211,14 +215,21 @@ const initializeScene = async (opts: {
     /^#json=([a-zA-Z0-9_-]+),([a-zA-Z0-9_-]+)$/,
   );
   const externalUrlMatch = window.location.hash.match(/^#url=(.*)$/);
-  const canvasMatch = window.location.hash.match(/^#canvas=(\w+)$/);
+  // a shared scene opens as a new canvas, a collaboration link as none
+  const canvasId =
+    getCanvasIdFromPath() ??
+    (jsonBackendMatch || externalUrlMatch ? await createCanvas() : undefined);
+  const home = canvasId ? `/s/${canvasId}` : "/";
 
-  // a shared scene opens as a new canvas
-  const localDataState = await openCanvas(
-    jsonBackendMatch || externalUrlMatch
-      ? await createCanvas()
-      : canvasMatch?.[1],
-  );
+  const localDataState = canvasId ? await openCanvas(canvasId) : null;
+  if (canvasId && !localDataState) {
+    window.history.replaceState({}, APP_NAME, "/");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    return { scene: null, isExternalScene: false };
+  }
+  if (!canvasId) {
+    appJotaiStore.set(currentCanvasIdAtom, null);
+  }
 
   let scene: Omit<
     RestoredDataState,
@@ -271,7 +282,7 @@ const initializeScene = async (opts: {
       }
       scene.scrollToContent = true;
       if (!roomLinkData) {
-        window.history.replaceState({}, APP_NAME, window.location.origin);
+        window.history.replaceState({}, APP_NAME, home);
       }
     } else {
       // https://github.com/excalidraw/excalidraw/issues/1919
@@ -288,10 +299,10 @@ const initializeScene = async (opts: {
       }
 
       roomLinkData = null;
-      window.history.replaceState({}, APP_NAME, window.location.origin);
+      window.history.replaceState({}, APP_NAME, home);
     }
   } else if (externalUrlMatch) {
-    window.history.replaceState({}, APP_NAME, window.location.origin);
+    window.history.replaceState({}, APP_NAME, home);
 
     const url = externalUrlMatch[1];
     try {
@@ -559,8 +570,11 @@ const ExcalidrawWrapper = () => {
       initialStatePromiseRef.current.promise.resolve(data.scene);
     });
 
-    const onHashChange = async (event: HashChangeEvent) => {
+    const onHashChange = async (event: Event) => {
       event.preventDefault();
+      if (!isEditorRoute()) {
+        return;
+      }
       const libraryUrlTokens = parseLibraryTokensFromUrl();
       if (!libraryUrlTokens) {
         if (
@@ -608,11 +622,13 @@ const ExcalidrawWrapper = () => {
     };
 
     window.addEventListener(EVENT.HASHCHANGE, onHashChange, false);
+    window.addEventListener("popstate", onHashChange, false);
     window.addEventListener(EVENT.UNLOAD, onUnload, false);
     window.addEventListener(EVENT.BLUR, visibilityChange, false);
     document.addEventListener(EVENT.VISIBILITY_CHANGE, visibilityChange, false);
     return () => {
       window.removeEventListener(EVENT.HASHCHANGE, onHashChange, false);
+      window.removeEventListener("popstate", onHashChange, false);
       window.removeEventListener(EVENT.UNLOAD, onUnload, false);
       window.removeEventListener(EVENT.BLUR, visibilityChange, false);
       document.removeEventListener(
@@ -900,9 +916,6 @@ const ExcalidrawWrapper = () => {
         }}
       >
         <AppMainMenu
-          onCollabDialogOpen={onCollabDialogOpen}
-          isCollaborating={isCollaborating}
-          isCollabEnabled={isCollabAvailable}
           theme={appTheme}
           refresh={() => forceRefresh((prev) => !prev)}
         />
@@ -1056,16 +1069,34 @@ const ExcalidrawWrapper = () => {
 const ExcalidrawApp = () => {
   // undefined until Firebase restores the session
   const [user, setUser] = useState<User | null>();
+  const [isEditor, setIsEditor] = useState(isEditorRoute);
 
   useEffect(() => {
     onUserChange(setUser);
+    const onNavigate = () => setIsEditor(isEditorRoute());
+    window.addEventListener("popstate", onNavigate);
+    window.addEventListener(EVENT.HASHCHANGE, onNavigate);
+    return () => {
+      window.removeEventListener("popstate", onNavigate);
+      window.removeEventListener(EVENT.HASHCHANGE, onNavigate);
+    };
   }, []);
+
+  useEffect(() => {
+    // signed out, only `/` is allowed
+    if (user === null && window.location.pathname !== "/") {
+      window.history.replaceState({}, APP_NAME, "/");
+    }
+  }, [user]);
 
   if (user === undefined) {
     return null;
   }
   if (!user) {
     return <SignIn />;
+  }
+  if (!isEditor) {
+    return <Home />;
   }
 
   return (

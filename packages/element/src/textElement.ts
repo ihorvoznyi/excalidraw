@@ -27,7 +27,12 @@ import { updateStickyNoteLayout } from "./stickyNote";
 import { measureText } from "./textMeasurements";
 import { wrapText } from "./textWrapping";
 import { getTodoInset, isTodoElement } from "./todo";
-import { CODE_PADDING, getCodePadding, isCodeElement } from "./code";
+import {
+  CODE_PADDING,
+  getCodeDisplayText,
+  getCodePadding,
+  isCodeElement,
+} from "./code";
 
 import {
   isBoundToContainer,
@@ -101,7 +106,7 @@ export const redrawTextBoundingBox = (
       ? getBoundTextMaxWidth(container, textElement)
       : textElement.width;
     boundTextUpdates.text = wrapText(
-      textElement.originalText,
+      getCodeDisplayText(textElement.originalText, container),
       getFontString(textElement),
       maxWidth,
       renderEnvironment,
@@ -207,7 +212,7 @@ export const handleBindTextResize = (
     ) {
       if (text) {
         text = wrapText(
-          textElement.originalText,
+          getCodeDisplayText(textElement.originalText, container),
           getFontString(textElement),
           maxWidth,
           renderEnvironment,
