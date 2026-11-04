@@ -1,0 +1,306 @@
+.excalidraw .sheet {
+  // the headers' size is also in Sheet.tsx
+  --sheet-border: var(--default-border-color);
+  --sheet-header-bg: var(--island-bg-color);
+  --sheet-accent: var(--color-primary);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  background-color: var(--island-bg-color);
+  color: var(--color-on-surface);
+  font-family: var(--ui-font);
+  font-size: 13px;
+  line-height: 1.4;
+
+  &__toolbar {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    overflow-x: auto;
+    touch-action: pan-x;
+    border-bottom: 1px solid var(--sheet-border);
+  }
+
+  &__tool {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: auto;
+    height: 26px;
+    min-width: 26px;
+    padding: 0 4px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    &:hover:not(:disabled) {
+      background-color: var(--button-hover-bg);
+    }
+
+    &.active {
+      background-color: var(--color-surface-primary-container);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    text-decoration: none;
+  }
+
+  &__menu {
+    position: absolute;
+    top: 36px;
+    left: 4px;
+    z-index: 5;
+    padding: 8px;
+    border: 1px solid var(--sheet-border);
+    border-radius: 8px;
+    background-color: var(--island-bg-color);
+    box-shadow: var(--shadow-island);
+  }
+
+  &__palette-top {
+    display: grid;
+    grid-template-columns: repeat(12, 20px);
+    gap: 4px;
+
+    .sheet__tool {
+      grid-column: span 10;
+      justify-content: flex-start;
+    }
+  }
+
+  &__swatch {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 1px solid var(--sheet-border);
+    border-radius: 4px;
+    cursor: pointer;
+
+    &.active {
+      outline: 2px solid var(--sheet-accent);
+      outline-offset: 1px;
+    }
+  }
+
+  &__link {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 260px;
+
+    label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      height: 26px;
+      padding: 0 6px;
+      border: 1px solid var(--sheet-border);
+      border-radius: 4px;
+      background: none;
+      color: inherit;
+      font: inherit;
+    }
+
+    label:has(input) {
+      justify-content: space-between;
+    }
+
+    div {
+      display: flex;
+      gap: 4px;
+    }
+  }
+
+  a {
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  &__separator {
+    flex: none;
+    width: 1px;
+    height: 16px;
+    margin: 0 4px;
+    background-color: var(--sheet-border);
+  }
+
+  select {
+    flex: none;
+    height: 26px;
+    padding: 0 4px;
+    border: 1px solid var(--sheet-border);
+    border-radius: 4px;
+    background-color: var(--island-bg-color);
+    color: inherit;
+    font: inherit;
+  }
+
+  &__formula {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 8px;
+    height: 28px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--sheet-border);
+
+    span {
+      flex: none;
+      min-width: 36px;
+      color: var(--color-gray-50);
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      padding: 0;
+      border: 0;
+      outline: 0;
+      background: none;
+      color: inherit;
+      font: inherit;
+    }
+  }
+
+  &__grid {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    outline: 0;
+    touch-action: pan-x pan-y;
+    user-select: none;
+  }
+
+  table {
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+  }
+
+  th,
+  td {
+    box-sizing: border-box;
+    border-right: 1px solid var(--sheet-border);
+    border-bottom: 1px solid var(--sheet-border);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  th {
+    position: sticky;
+    z-index: 1;
+    background-color: var(--sheet-header-bg);
+    color: var(--color-gray-50);
+    font-weight: 400;
+    text-align: center;
+    cursor: pointer;
+
+    &.selected {
+      background-color: var(--color-surface-primary-container);
+      color: var(--color-on-surface);
+    }
+  }
+
+  thead th {
+    top: 0;
+    z-index: 2;
+    height: 24px;
+
+    &:first-child {
+      left: 0;
+      z-index: 3;
+    }
+  }
+
+  tbody th {
+    left: 0;
+  }
+
+  td {
+    position: relative;
+    padding: 0 4px;
+
+    // the editor grows past its cell
+    &:has(.sheet__editor) {
+      overflow: visible;
+      z-index: 1;
+    }
+  }
+
+  &--active td.selected {
+    box-shadow: inset 0 0 0 999px
+      color-mix(in srgb, var(--sheet-accent) 12%, transparent);
+  }
+
+  &--active td.anchor {
+    outline: 2px solid var(--sheet-accent);
+    outline-offset: -2px;
+  }
+
+  &__editor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    min-width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 0 4px;
+    border: 2px solid var(--sheet-accent);
+    outline: 0;
+    background-color: var(--island-bg-color);
+    color: var(--color-on-surface);
+    font: inherit;
+  }
+
+  &__resize {
+    position: absolute;
+    z-index: 1;
+
+    &:hover {
+      background-color: var(--sheet-accent);
+    }
+
+    &--col {
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 5px;
+      cursor: col-resize;
+    }
+
+    &--row {
+      right: 0;
+      bottom: 0;
+      left: 0;
+      height: 5px;
+      cursor: row-resize;
+    }
+  }
+}

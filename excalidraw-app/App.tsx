@@ -29,6 +29,7 @@ import {
   resolvablePromise,
   isRunningInIframe,
   isDevEnv,
+  THEME,
 } from "@excalidraw/common";
 import polyfill from "@excalidraw/excalidraw/polyfill";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -36,7 +37,7 @@ import { loadFromBlob } from "@excalidraw/excalidraw/data/blob";
 import { t } from "@excalidraw/excalidraw/i18n";
 
 import { usersIcon, share } from "@excalidraw/excalidraw/components/icons";
-import { isElementLink } from "@excalidraw/element";
+import { isElementLink, isSheetElement } from "@excalidraw/element";
 import {
   bumpElementVersions,
   restoreAppState,
@@ -131,6 +132,7 @@ import { AppSidebar } from "./components/AppSidebar";
 import { Home } from "./components/Home";
 import { SignIn } from "./components/SignIn";
 import { CodeBlockControls } from "./toolbox/CodeBlockControls";
+import { Sheet } from "./toolbox/Sheet";
 import { registerCode } from "./toolbox/code";
 import { registerTodo } from "./toolbox/todo";
 
@@ -881,6 +883,18 @@ const ExcalidrawWrapper = () => {
         }}
         langCode={langCode}
         renderCustomStats={renderCustomStats}
+        renderEmbeddable={(element, appState) =>
+          isSheetElement(element) ? (
+            <Sheet
+              element={element}
+              isActive={
+                appState.activeEmbeddable?.element.id === element.id &&
+                appState.activeEmbeddable.state === "active"
+              }
+              isDark={appState.theme === THEME.DARK}
+            />
+          ) : null
+        }
         detectScroll={false}
         handleKeyboardGlobally={true}
         autoFocus={true}

@@ -151,6 +151,7 @@ import {
   getContainerCenter,
   getContainerElement,
   getLinkAtPoint,
+  isSheetElement,
   getColorUpdate,
   getStickyNoteMinSize,
   isValidTextContainer,
@@ -1618,7 +1619,7 @@ class App extends React.Component<AppProps, AppState> {
     const iframeLikeElement = hitElement;
 
     if (
-      this.state.activeEmbeddable?.element === iframeLikeElement &&
+      this.state.activeEmbeddable?.element.id === iframeLikeElement.id &&
       this.state.activeEmbeddable?.state === "active"
     ) {
       return true;
@@ -1743,7 +1744,7 @@ class App extends React.Component<AppProps, AppState> {
       !event.shiftKey &&
       !event.metaKey &&
       !event.ctrlKey &&
-      (this.state.activeEmbeddable?.element !== el ||
+      (this.state.activeEmbeddable?.element.id !== el.id ||
         this.state.activeEmbeddable?.state === "hover" ||
         !this.state.activeEmbeddable) &&
       sceneX >= el.x + el.width / 3 &&
@@ -1771,10 +1772,9 @@ class App extends React.Component<AppProps, AppState> {
         if (!this.embedsValidationStatus.has(element.id)) {
           updated = true;
 
-          const validated = embeddableURLValidator(
-            element.link,
-            this.props.validateEmbeddable,
-          );
+          const validated =
+            isSheetElement(element) ||
+            embeddableURLValidator(element.link, this.props.validateEmbeddable);
 
           this.updateEmbedValidationStatus(element, validated);
         }
@@ -1948,10 +1948,10 @@ class App extends React.Component<AppProps, AppState> {
           }
 
           const isActive =
-            this.state.activeEmbeddable?.element === el &&
+            this.state.activeEmbeddable?.element.id === el.id &&
             this.state.activeEmbeddable?.state === "active";
           const isHovered =
-            this.state.activeEmbeddable?.element === el &&
+            this.state.activeEmbeddable?.element.id === el.id &&
             this.state.activeEmbeddable?.state === "hover";
 
           // scale video embeds based on zoom (capped) so that smaller embeds
@@ -2515,7 +2515,8 @@ class App extends React.Component<AppProps, AppState> {
                             selectedElements.length === 1 &&
                             this.state.openDialog?.name !==
                               "elementLinkSelector" &&
-                            this.state.showHyperlinkPopup && (
+                            this.state.showHyperlinkPopup &&
+                            !isSheetElement(firstSelectedElement) && (
                               <Hyperlink
                                 key={firstSelectedElement.id}
                                 element={firstSelectedElement}

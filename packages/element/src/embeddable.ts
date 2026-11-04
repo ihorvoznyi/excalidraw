@@ -16,6 +16,7 @@ import type { RenderEnvironment } from "./renderEnvironment";
 import type {
   ExcalidrawIframeLikeElement,
   IframeData,
+  ExcalidrawElement,
   NonDeletedExcalidrawElement,
 } from "./types";
 
@@ -171,6 +172,10 @@ const ALLOW_SAME_ORIGIN = new Set([
   "forms.microsoft.com",
   "instagram.com",
 ]);
+
+/** an embeddable without a link, tagged with `customData.sheet` and drawn by the app */
+export const isSheetElement = (element: ExcalidrawElement | null) =>
+  element?.type === "embeddable" && !!element.customData?.sheet;
 
 export const createSrcDoc = (body: string) => {
   return `<html><body>${body}</body></html>`;

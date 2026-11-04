@@ -2,6 +2,7 @@ import { useExcalidrawAPI } from "@excalidraw/excalidraw";
 import { createIcon } from "@excalidraw/excalidraw/components/icons";
 
 import { insertCode } from "./code";
+import { insertSheet } from "./Sheet";
 import { insertTodo } from "./todo";
 
 import "./Toolbox.scss";
@@ -38,6 +39,16 @@ const codeIcon = createIcon(
   tablerIconProps,
 );
 
+const sheetIcon = createIcon(
+  <>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M3 10h18" />
+    <path d="M3 15h18" />
+    <path d="M10 4v16" />
+  </>,
+  tablerIconProps,
+);
+
 export const Toolbox = () => {
   const excalidrawAPI = useExcalidrawAPI();
 
@@ -58,6 +69,14 @@ export const Toolbox = () => {
       >
         {codeIcon}
         Code block
+      </button>
+      <button
+        type="button"
+        className="toolbox__item"
+        onClick={() => excalidrawAPI && insertSheet(excalidrawAPI)}
+      >
+        {sheetIcon}
+        Sheet
       </button>
     </div>
   );

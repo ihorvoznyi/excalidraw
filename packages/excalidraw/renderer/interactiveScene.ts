@@ -1931,7 +1931,7 @@ const _renderInteractiveScene = ({
             cx,
             cy,
             activeEmbeddable:
-              appState.activeEmbeddable?.element === element &&
+              appState.activeEmbeddable?.element.id === element.id &&
               appState.activeEmbeddable.state === "active",
             padding:
               element.id === appState.croppingElementId ||
