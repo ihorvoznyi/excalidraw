@@ -17,11 +17,11 @@ import {
   CODE_LANGUAGES,
   CaptureUpdateAction,
   getBoundTextElement,
+  getTextMarks,
   hitElementBoundingBox,
   isCodeElement,
-  isTextElement,
   newElementWith,
-  refreshTextDimensions,
+  toMarkdown,
 } from "@excalidraw/element";
 import { pointFrom, pointRotateRads } from "@excalidraw/math";
 import { useEffect, useRef, useState } from "react";
@@ -101,10 +101,11 @@ export const CodeBlockControls = () => {
         { sceneX, sceneY },
         appState,
       );
+      const label = getBoundTextElement(hovered, elementsMap);
       setBlock({
         id: hovered.id,
         language: hovered.customData?.code.language,
-        text: getBoundTextElement(hovered, elementsMap)?.originalText ?? "",
+        text: label ? toMarkdown(label.originalText, getTextMarks(label)) : "",
         // on screen even when the block's corner isn't
         left: Math.min(left, appState.offsetLeft + appState.width - INSET),
         top: Math.max(top, appState.offsetTop + INSET),
@@ -153,7 +154,6 @@ export const CodeBlockControls = () => {
               selected={language === block.language}
               onSelect={() => {
                 const elements = api.getSceneElementsIncludingDeleted();
-                const elementsMap = arrayToMap(elements);
                 const container = elements.find((el) => el.id === block.id);
                 if (container?.type !== "rectangle") {
                   return;
@@ -163,20 +163,7 @@ export const CodeBlockControls = () => {
                 });
                 api.updateScene({
                   elements: elements.map((el) =>
-                    el === container
-                      ? nextContainer
-                      : isTextElement(el) && el.containerId === block.id
-                      ? // markdown links collapse, so the text wraps anew
-                        newElementWith(
-                          el,
-                          refreshTextDimensions(
-                            el,
-                            nextContainer,
-                            elementsMap,
-                            el.originalText,
-                          ) ?? {},
-                        )
-                      : el,
+                    el === container ? nextContainer : el,
                   ),
                   captureUpdate: CaptureUpdateAction.IMMEDIATELY,
                 });

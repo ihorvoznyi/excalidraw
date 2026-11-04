@@ -24,6 +24,9 @@ import {
   getBoundTextElement,
   getContainerCenter,
   getContainerElement,
+  getTextMarks,
+  isMarkdownBlock,
+  parseMarkdownLinks,
   getElementAbsoluteCoords,
   getElementBounds,
   getLineHeightInPx,
@@ -185,6 +188,20 @@ export class AppText {
     },
   ) {
     const elementsMap = this.app.scene.getElementsMapIncludingDeleted();
+
+    // a markdown block saved with raw `[alias](url)`s opens as linked text
+    if (isMarkdownBlock(getContainerElement(element, elementsMap))) {
+      const { text, marks } = parseMarkdownLinks(
+        element.originalText,
+        getTextMarks(element),
+      );
+      if (text !== element.originalText) {
+        this.app.scene.mutateElement(element, {
+          originalText: text,
+          customData: { ...element.customData, marks },
+        });
+      }
+    }
 
     const updateElement = (nextOriginalText: string, isDeleted: boolean) => {
       const latestTextElement =

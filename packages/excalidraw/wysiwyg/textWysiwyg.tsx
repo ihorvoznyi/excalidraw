@@ -36,6 +36,9 @@ import {
   getBoundTextElement,
   getCodePadding,
   isCodeElement,
+  isMarkdownBlock,
+  parseMarkdownLinks,
+  toMarkdown,
   getActiveTextStyle,
   getTextMarks,
   hasTextStyles,
@@ -826,6 +829,33 @@ export const textWysiwyg = ({
 
   if (onChange) {
     editable.onpaste = async (event) => {
+      // in a markdown block a URL pasted over a selection links it
+      const url = event.clipboardData?.getData("text/plain").trim() ?? "";
+      const { selectionStart: start, selectionEnd: end } = editable;
+      const pasteLabel = app.scene.getElement<ExcalidrawTextElement>(
+        element.id,
+      );
+      if (
+        pasteLabel &&
+        start !== end &&
+        /^https?:\/\/\S+$/.test(url) &&
+        isMarkdownBlock(
+          getContainerElement(element, app.scene.getNonDeletedElementsMap()),
+        )
+      ) {
+        event.preventDefault();
+        setMarks(
+          pasteLabel,
+          patchTextMarks(
+            getTextMarks(pasteLabel),
+            editable.value.length,
+            start,
+            end,
+            { href: url },
+          ),
+        );
+        return;
+      }
       // we need to synchronously get the MIME types so we can preventDefault()
       // in the same tick (FF requires that)
       const mimeTypes = parseDataTransferEventMimeTypes(event);
@@ -923,6 +953,27 @@ export const textWysiwyg = ({
       }
     };
 
+    // links leave the editor as markdown, for them to survive a paste
+    const copyLinks = (event: ClipboardEvent) => {
+      const { selectionStart: start, selectionEnd: end, value } = editable;
+      const label = app.scene.getElement<ExcalidrawTextElement>(element.id);
+      const copied =
+        label && toMarkdown(value, getTextMarks(label), start, end);
+      if (!copied || copied === value.slice(start, end)) {
+        return false;
+      }
+      event.preventDefault();
+      event.clipboardData?.setData("text/plain", copied);
+      return true;
+    };
+    editable.oncopy = (event) => void copyLinks(event);
+    editable.oncut = (event) => {
+      if (copyLinks(event)) {
+        editable.setRangeText("");
+        editable.dispatchEvent(new Event("input"));
+      }
+    };
+
     editable.oninput = () => {
       const normalized = normalizeText(editable.value);
       if (editable.value !== normalized) {
@@ -940,6 +991,24 @@ export const textWysiwyg = ({
           label,
           shiftTextMarks(marks, label.originalText, editable.value),
         );
+      }
+      // typed or pasted `[alias](url)`s become linked text
+      if (
+        label &&
+        isMarkdownBlock(
+          getContainerElement(element, app.scene.getNonDeletedElementsMap()),
+        )
+      ) {
+        const { selectionStart: caret, value } = editable;
+        const parsed = parseMarkdownLinks(value, getTextMarks(label));
+        if (parsed.text !== value) {
+          editable.value = parsed.text;
+          editable.selectionStart = editable.selectionEnd = parseMarkdownLinks(
+            value.slice(0, caret),
+            [],
+          ).text.length;
+          setMarks(label, parsed.marks);
+        }
       }
       onChange(editable.value);
       // once the update, and any scroll it made (see

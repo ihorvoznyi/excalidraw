@@ -9,14 +9,12 @@ import {
   CODE_LANGUAGES,
   CaptureUpdateAction,
   convertToExcalidrawElements,
-  getContainerElement,
-  getTextLinkAt,
+  getLinkAtPoint,
   isTextElement,
   newElementWith,
+  parseMarkdownLinks,
 } from "@excalidraw/element";
-import { pointFrom, pointRotateRads } from "@excalidraw/math";
 
-import type { Radians } from "@excalidraw/math";
 import type { ExcalidrawTextElement } from "@excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
@@ -33,7 +31,11 @@ const MIN_WIDTH = 240;
 
 // one element (a rectangle tagged as a code block) sized to its code, with
 // room for its language dropdown beside short code
-const newCodeBlock = (x: number, y: number, language: string, text: string) => {
+const newCodeBlock = (x: number, y: number, language: string, code: string) => {
+  const { text, marks } =
+    language === "markdown"
+      ? parseMarkdownLinks(code, [])
+      : { text: code, marks: [] };
   const [block, label] = convertToExcalidrawElements([
     {
       type: "rectangle",
@@ -46,7 +48,7 @@ const newCodeBlock = (x: number, y: number, language: string, text: string) => {
       roughness: ROUGHNESS.architect,
       roundness: { type: ROUNDNESS.ADAPTIVE_RADIUS, value: 8 },
       customData: { code: { language } },
-      label: { text, ...CODE_LABEL },
+      label: { text, ...CODE_LABEL, customData: { marks } },
     },
   ]);
   return [
@@ -85,34 +87,11 @@ export const registerCode = (api: ExcalidrawImperativeAPI) => {
     }
     const { x, y } = viewportCoordsToSceneCoords(event, api.getAppState());
     const elements = api.getSceneElements();
-    const elementsMap = arrayToMap(elements);
-    for (const label of elements) {
-      const container = isTextElement(label)
-        ? getContainerElement(label, elementsMap)
-        : null;
-      if (!isTextElement(label) || !container) {
-        continue;
-      }
-      const [localX, localY] = pointRotateRads(
-        pointFrom(x, y),
-        pointFrom(
-          container.x + container.width / 2,
-          container.y + container.height / 2,
-        ),
-        -container.angle as Radians,
-      );
-      const href = getTextLinkAt(
-        label,
-        container,
-        localX - label.x,
-        localY - label.y,
-      );
-      if (href) {
-        event.preventDefault();
-        event.stopPropagation();
-        window.open(href, "_blank", "noopener,noreferrer");
-        return;
-      }
+    const href = getLinkAtPoint(elements, arrayToMap(elements), x, y);
+    if (href) {
+      event.preventDefault();
+      event.stopPropagation();
+      window.open(href, "_blank", "noopener,noreferrer");
     }
   };
   window.addEventListener("pointerdown", onPointerDown, true);

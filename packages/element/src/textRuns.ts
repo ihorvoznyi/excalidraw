@@ -5,17 +5,18 @@ import {
   getFontString,
   isRTL,
 } from "@excalidraw/common";
+import { pointFrom, pointRotateRads } from "@excalidraw/math";
 
-import {
-  collapseCodeLinks,
-  getCodeDisplayText,
-  getCodeStyles,
-  isCodeElement,
-} from "./code";
+import type { Radians } from "@excalidraw/math";
+
+import { getCodeStyles, isCodeElement } from "./code";
+import { getContainerElement } from "./textElement";
 import { getLineWidth } from "./textMeasurements";
+import { isTextElement } from "./typeChecks";
 
 import type { RenderEnvironment } from "./renderEnvironment";
 import type {
+  ElementsMap,
   ExcalidrawElement,
   ExcalidrawTextElement,
   FontString,
@@ -63,6 +64,10 @@ const LINE_STYLES = [
   ["underline", 0.12],
   ["strike", -0.3],
 ] as const;
+
+// a URL may hold one level of parentheses
+const LINK = /\[([^\]\n]+)\]\((https?:\/\/(?:[^()\s]|\([^()\s]*\))+)\)/g;
+const LINK_COLOR = "#2c61a1";
 
 export const getTextMarks = (label: ExcalidrawTextElement): TextMark[] =>
   label.customData?.marks ?? [];
@@ -166,13 +171,63 @@ export const shiftTextMarks = (
     suffix++;
   }
   const styles = getCharStyles(marks, prev.length);
-  const inherited =
-    (prefix < prev.length - suffix ? styles[prefix] : styles[prefix - 1]) ?? {};
+  const isInsert = prefix >= prev.length - suffix;
+  const inherited = (isInsert ? styles[prefix - 1] : styles[prefix]) ?? {};
+  // typing past a link's end leaves it
+  const leavesLink = isInsert && inherited.href !== styles[prefix]?.href;
   return toMarks([
     ...styles.slice(0, prefix),
-    ...Array.from({ length: next.length - prefix - suffix }, () => inherited),
+    ...Array.from({ length: next.length - prefix - suffix }, () =>
+      leavesLink ? { ...inherited, href: undefined } : inherited,
+    ),
     ...styles.slice(prev.length - suffix),
   ]);
+};
+
+/** `[alias](url)`s in a text turned into their alias, linked by a mark */
+export const parseMarkdownLinks = (
+  text: string,
+  marks: readonly TextMark[],
+) => {
+  const styles = getCharStyles(marks, text.length);
+  const nextStyles: TextStyle[] = [];
+  let next = "";
+  let last = 0;
+  for (const match of text.matchAll(LINK)) {
+    const alias = match.index + 1;
+    next += text.slice(last, match.index) + match[1];
+    nextStyles.push(
+      ...styles.slice(last, match.index),
+      ...styles
+        .slice(alias, alias + match[1].length)
+        .map((style) => ({ ...style, href: match[2] })),
+    );
+    last = match.index + match[0].length;
+  }
+  return {
+    text: next + text.slice(last),
+    marks: toMarks(nextStyles.concat(styles.slice(last))),
+  };
+};
+
+/** a range of a text as markdown, its links as `[alias](url)` */
+export const toMarkdown = (
+  text: string,
+  marks: readonly TextMark[],
+  start = 0,
+  end = text.length,
+) => {
+  let out = "";
+  let last = start;
+  for (const mark of marks) {
+    const from = Math.max(mark.start, last);
+    const to = Math.min(mark.end, end);
+    if (mark.href && from < to) {
+      out += `${text.slice(last, from)}[${text.slice(from, to)}](${mark.href})`;
+      last = to;
+    }
+  }
+  return out + text.slice(last, end);
 };
 
 const getRunFont = (label: ExcalidrawTextElement, style: TextStyle) =>
@@ -190,16 +245,12 @@ export const getTextRuns = (
   if (!hasTextStyles(label, container)) {
     return null;
   }
-  const original = getCodeDisplayText(label.originalText, container);
-  const charStyles = getCharStyles(
+  const original = label.originalText;
+  const styles = getCharStyles(
     getTextMarks(label),
     label.originalText.length,
     getCodeStyles(label, container),
   );
-  const styles =
-    original === label.originalText
-      ? charStyles
-      : collapseCodeLinks(label.originalText, charStyles);
 
   const lines: TextRun[][] = [[]];
   let index = 0;
@@ -213,7 +264,11 @@ export const getTextRuns = (
       index++;
     }
     const matched = original.startsWith(char, index);
-    const style = matched ? styles[index] : {};
+    const style = !matched
+      ? {}
+      : styles[index].href
+      ? { ...styles[index], color: LINK_COLOR, underline: true }
+      : styles[index];
     if (matched) {
       index += char.length;
     }
@@ -251,17 +306,45 @@ export const getTextRuns = (
   return lines;
 };
 
-/** the link at a point of a text, in its own unrotated frame from its corner */
-export const getTextLinkAt = (
-  label: ExcalidrawTextElement,
-  container: ExcalidrawElement | null,
+/** the link at a point of the scene */
+export const getLinkAtPoint = (
+  elements: readonly ExcalidrawElement[],
+  elementsMap: ElementsMap,
   x: number,
   y: number,
-) =>
-  getTextRuns(label, container)?.[
-    Math.floor(y / (label.fontSize * label.lineHeight))
-  ]?.find((run) => run.style.href && x >= run.x && x < run.x + run.width)?.style
-    .href;
+) => {
+  for (const label of elements) {
+    const container =
+      isTextElement(label) && getTextMarks(label).some((mark) => mark.href)
+        ? getContainerElement(label, elementsMap)
+        : null;
+    if (!isTextElement(label) || !container) {
+      continue;
+    }
+    const [localX, localY] = pointRotateRads(
+      pointFrom(x, y),
+      pointFrom(
+        container.x + container.width / 2,
+        container.y + container.height / 2,
+      ),
+      -container.angle as Radians,
+    );
+    const textX = localX - label.x;
+    const textY = localY - label.y;
+    // this runs on every pointer move, and laying out runs doesn't come free
+    if (textX < 0 || textY < 0 || textX > label.width || textY > label.height) {
+      continue;
+    }
+    const href = getTextRuns(label, container)?.[
+      Math.floor(textY / (label.fontSize * label.lineHeight))
+    ]?.find(
+      (run) => run.style.href && textX >= run.x && textX < run.x + run.width,
+    )?.style.href;
+    if (href) {
+      return href;
+    }
+  }
+};
 
 export const drawTextRuns = (
   context: CanvasRenderingContext2D,

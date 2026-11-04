@@ -150,6 +150,7 @@ import {
   getBoundTextElement,
   getContainerCenter,
   getContainerElement,
+  getLinkAtPoint,
   getColorUpdate,
   getStickyNoteMinSize,
   isValidTextContainer,
@@ -7286,6 +7287,15 @@ class App extends React.Component<AppProps, AppState> {
         this.setState({ showHyperlinkPopup: "info" });
       } else if (this.state.activeTool.type === "text") {
         this.cursor.set(this.textTool.cursorFor(textToolTarget));
+      } else if (
+        getLinkAtPoint(
+          this.scene.getNonDeletedElements(),
+          this.scene.getNonDeletedElementsMap(),
+          scenePointerX,
+          scenePointerY,
+        )
+      ) {
+        this.cursor.set(CURSOR_TYPE.POINTER);
       } else if (
         !event[KEYS.CTRL_OR_CMD] &&
         this.selection.isHittingCommonBoundingBoxOfSelectedElements(

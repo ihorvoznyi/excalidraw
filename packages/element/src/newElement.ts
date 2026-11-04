@@ -23,7 +23,6 @@ import {
   getElementAbsoluteCoords,
   getResizedElementAbsoluteCoords,
 } from "./bounds";
-import { getCodeDisplayText } from "./code";
 import { newElementWith } from "./mutateElement";
 import {
   normalizeStickyNoteBackgroundColor,
@@ -582,7 +581,7 @@ export const refreshTextDimensions = (
   }
   if (container || !textElement.autoResize) {
     text = wrapText(
-      getCodeDisplayText(text, container),
+      text,
       getFontString(textElement),
       container
         ? getBoundTextMaxWidth(container, textElement)
