@@ -64,7 +64,7 @@ const ExtraToolsDropdown = ({
 }) => {
   const [isExtraToolsMenuOpen, setIsExtraToolsMenuOpen] = useState(false);
   const isFullStylesPanel = useStylesPanelMode() === "full";
-  const { TTDDialogTriggerTunnel } = useTunnels();
+  const { TTDDialogTriggerTunnel, ExtraToolsTunnel } = useTunnels();
 
   const imageToolSelected = activeTool.type === "image";
   const frameToolSelected = activeTool.type === "frame";
@@ -120,6 +120,7 @@ const ExtraToolsDropdown = ({
         onSelect={() => setIsExtraToolsMenuOpen(false)}
         className="App-toolbar__extra-tools-dropdown"
       >
+        <ExtraToolsTunnel.Out />
         {UIOptions.tools?.image !== false && (
           <DropdownMenu.Item
             onSelect={() => app.setActiveTool({ type: "image" })}

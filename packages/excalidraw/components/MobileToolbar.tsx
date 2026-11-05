@@ -81,7 +81,7 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
   const bucketFillToolSelected = activeTool.type === "bucketfill";
   const stickyNoteToolSelected = activeTool.type === "stickynote";
 
-  const { TTDDialogTriggerTunnel } = useTunnels();
+  const { TTDDialogTriggerTunnel, ExtraToolsTunnel } = useTunnels();
 
   const SHAPE_TOOLS = (["rectangle", "diamond", "ellipse"] as const).map(
     (type) => ({
@@ -259,6 +259,7 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
           className="App-toolbar__extra-tools-dropdown"
           align="start"
         >
+          <ExtraToolsTunnel.Out />
           {!showTextToolOutside && (
             <DropdownMenu.Item
               onSelect={() => app.setActiveTool({ type: "text" })}

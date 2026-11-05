@@ -1,0 +1,60 @@
+// a terminal needs far more than the default 302px, the canvas toolbar needs 680px;
+// `!important` beats the inline value the editor sets on this element
+.excalidraw:has(.consoles-sidebar) {
+  --right-sidebar-width: clamp(480px, 100vw - 680px, 640px) !important;
+}
+.excalidraw:has(.consoles-sidebar--v2) {
+  --right-sidebar-width: clamp(480px, 100vw - 680px, 800px) !important;
+}
+.excalidraw:has(.consoles-sidebar--v3) {
+  --right-sidebar-width: clamp(480px, 100vw - 680px, 50vw) !important;
+}
+
+.excalidraw .consoles-sidebar {
+  max-width: 100%;
+
+  .consoles__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    font-family: var(--ui-font);
+    color: var(--color-on-surface);
+
+    button {
+      padding: 0.125rem 0.5rem;
+      border: 0;
+      border-radius: var(--border-radius-md);
+      background: none;
+      color: inherit;
+      font-family: inherit;
+      cursor: pointer;
+
+      &:hover {
+        background-color: var(--button-hover-bg);
+      }
+    }
+  }
+
+  .consoles__tab {
+    display: flex;
+    border-radius: var(--border-radius-md);
+    opacity: 0.5;
+
+    &.is-active {
+      background-color: var(--color-primary-light);
+      opacity: 1;
+    }
+  }
+
+  .consoles__view {
+    flex: 1;
+    min-height: 0;
+    padding: 0.25rem;
+    background-color: #000;
+  }
+
+  .consoles__host {
+    height: 100%;
+  }
+}

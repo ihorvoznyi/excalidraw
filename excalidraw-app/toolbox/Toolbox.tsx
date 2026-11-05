@@ -1,5 +1,7 @@
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
+import DropdownMenu from "@excalidraw/excalidraw/components/dropdownMenu/DropdownMenu";
 import { createIcon } from "@excalidraw/excalidraw/components/icons";
+import { useTunnels } from "@excalidraw/excalidraw/context/tunnels";
 
 import { insertCode } from "./code";
 import { insertSheet } from "./Sheet";
@@ -49,35 +51,55 @@ const sheetIcon = createIcon(
   tablerIconProps,
 );
 
+const ITEMS = [
+  { label: "To-do", icon: todoIcon, insert: insertTodo },
+  { label: "Code block", icon: codeIcon, insert: insertCode },
+  { label: "Sheet", icon: sheetIcon, insert: insertSheet },
+];
+
 export const Toolbox = () => {
   const excalidrawAPI = useExcalidrawAPI();
 
   return (
     <div className="toolbox">
-      <button
-        type="button"
-        className="toolbox__item"
-        onClick={() => excalidrawAPI && insertTodo(excalidrawAPI)}
-      >
-        {todoIcon}
-        To-do
-      </button>
-      <button
-        type="button"
-        className="toolbox__item"
-        onClick={() => excalidrawAPI && insertCode(excalidrawAPI)}
-      >
-        {codeIcon}
-        Code block
-      </button>
-      <button
-        type="button"
-        className="toolbox__item"
-        onClick={() => excalidrawAPI && insertSheet(excalidrawAPI)}
-      >
-        {sheetIcon}
-        Sheet
-      </button>
+      {ITEMS.map(({ label, icon, insert }) => (
+        <button
+          key={label}
+          type="button"
+          className="toolbox__item"
+          onClick={() => excalidrawAPI && insert(excalidrawAPI)}
+        >
+          {icon}
+          {label}
+        </button>
+      ))}
     </div>
+  );
+};
+
+/** the same items, on hover in the toolbar's "more tools" menu */
+export const ToolboxMenu = () => {
+  const excalidrawAPI = useExcalidrawAPI();
+  const { ExtraToolsTunnel } = useTunnels();
+
+  return (
+    <ExtraToolsTunnel.In>
+      <DropdownMenu.Sub>
+        <DropdownMenu.Sub.Trigger icon={toolboxIcon}>
+          Components
+        </DropdownMenu.Sub.Trigger>
+        <DropdownMenu.Sub.Content>
+          {ITEMS.map(({ label, icon, insert }) => (
+            <DropdownMenu.Item
+              key={label}
+              icon={icon}
+              onSelect={() => excalidrawAPI && insert(excalidrawAPI)}
+            >
+              {label}
+            </DropdownMenu.Item>
+          ))}
+        </DropdownMenu.Sub.Content>
+      </DropdownMenu.Sub>
+    </ExtraToolsTunnel.In>
   );
 };

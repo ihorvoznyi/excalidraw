@@ -8,6 +8,7 @@ import checker from "vite-plugin-checker";
 import { createHtmlPlugin } from "vite-plugin-html";
 import Sitemap from "vite-plugin-sitemap";
 import { claudePlugin } from "./claude/vitePlugin";
+import { consolesPlugin } from "./consoles/vitePlugin";
 import { woff2BrowserPlugin } from "../scripts/woff2/woff2-vite-plugins";
 
 import type { Plugin, Rollup } from "vite";
@@ -243,6 +244,7 @@ export default defineConfig(({ mode }) => {
       }),
       woff2BrowserPlugin(),
       claudePlugin(),
+      consolesPlugin(),
       lazyChunksPlugin(
         /[\\/]node_modules[\\/]@excalidraw[\\/]mermaid-to-excalidraw[\\/]/,
         mermaidChunkFileNames,

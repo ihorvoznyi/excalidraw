@@ -133,6 +133,7 @@ import { Home } from "./components/Home";
 import { SignIn } from "./components/SignIn";
 import { CodeBlockControls } from "./toolbox/CodeBlockControls";
 import { Sheet } from "./toolbox/Sheet";
+import { ToolboxMenu } from "./toolbox/Toolbox";
 import { registerCode } from "./toolbox/code";
 import { registerTodo } from "./toolbox/todo";
 
@@ -943,6 +944,7 @@ const ExcalidrawWrapper = () => {
         </OverwriteConfirmDialog>
         <AppFooter onChange={() => excalidrawAPI?.refresh()} />
         <CodeBlockControls />
+        <ToolboxMenu />
         {excalidrawAPI && <AIComponents excalidrawAPI={excalidrawAPI} />}
 
         <TTDDialogTrigger />
