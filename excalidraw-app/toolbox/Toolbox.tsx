@@ -4,6 +4,7 @@ import { createIcon } from "@excalidraw/excalidraw/components/icons";
 import { useTunnels } from "@excalidraw/excalidraw/context/tunnels";
 
 import { insertCode } from "./code";
+import { insertRoadmap } from "./roadmap";
 import { insertSheet } from "./Sheet";
 import { insertTodo } from "./todo";
 
@@ -51,10 +52,22 @@ const sheetIcon = createIcon(
   tablerIconProps,
 );
 
+const roadmapIcon = createIcon(
+  <>
+    <rect x="9" y="3" width="6" height="4" rx="1" />
+    <rect x="9" y="17" width="6" height="4" rx="1" />
+    <rect x="2" y="10" width="5" height="4" rx="1" />
+    <rect x="17" y="10" width="5" height="4" rx="1" />
+    <path d="M12 7v10M9 12H7M15 12h2" />
+  </>,
+  tablerIconProps,
+);
+
 const ITEMS = [
   { label: "To-do", icon: todoIcon, insert: insertTodo },
   { label: "Code block", icon: codeIcon, insert: insertCode },
   { label: "Sheet", icon: sheetIcon, insert: insertSheet },
+  { label: "Roadmap", icon: roadmapIcon, insert: insertRoadmap },
 ];
 
 export const Toolbox = () => {

@@ -134,7 +134,9 @@ import { SignIn } from "./components/SignIn";
 import { CodeBlockControls } from "./toolbox/CodeBlockControls";
 import { Sheet } from "./toolbox/Sheet";
 import { ToolboxMenu } from "./toolbox/Toolbox";
+import { RoadmapPanel } from "./toolbox/RoadmapPanel";
 import { registerCode } from "./toolbox/code";
+import { registerRoadmap } from "./toolbox/roadmap";
 import { registerTodo } from "./toolbox/todo";
 
 import type { CollabAPI } from "./collab/Collab";
@@ -482,6 +484,11 @@ const ExcalidrawWrapper = () => {
 
   useEffect(
     () => (excalidrawAPI ? registerCode(excalidrawAPI) : undefined),
+    [excalidrawAPI],
+  );
+
+  useEffect(
+    () => (excalidrawAPI ? registerRoadmap(excalidrawAPI) : undefined),
     [excalidrawAPI],
   );
 
@@ -944,6 +951,7 @@ const ExcalidrawWrapper = () => {
         </OverwriteConfirmDialog>
         <AppFooter onChange={() => excalidrawAPI?.refresh()} />
         <CodeBlockControls />
+        <RoadmapPanel />
         <ToolboxMenu />
         {excalidrawAPI && <AIComponents excalidrawAPI={excalidrawAPI} />}
 
