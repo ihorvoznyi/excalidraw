@@ -20,7 +20,14 @@
     flex-shrink: 0;
   }
 
+  .canvases__buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+
   .canvases__new {
+    flex: 1;
+    white-space: nowrap;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -67,6 +74,19 @@
     text-align: start;
   }
 
+  .canvases__project-name {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+  }
+
+  .canvases__list--nested {
+    margin-inline-start: 1rem;
+    padding-inline-start: 0.25rem;
+    border-inline-start: 1px solid var(--default-border-color);
+  }
+
   .canvases__name {
     max-width: 100%;
     overflow: hidden;
@@ -93,8 +113,18 @@
   }
 
   .canvases__action {
+    position: relative;
+    display: flex;
     padding: 0.5rem;
     opacity: 0.6;
+    cursor: pointer;
+
+    select {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
 
     &:hover {
       opacity: 1;

@@ -23,6 +23,8 @@ export {
   limit,
   onSnapshot,
   updateDoc,
+  addDoc,
+  deleteField,
   writeBatch,
   runTransaction,
   Bytes,

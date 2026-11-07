@@ -1,7 +1,8 @@
 /**
  * Signed-in user's canvases, stored in Firebase:
  *
- * - users/{uid}/canvases/{id}  { name, updatedAt } (the list)
+ * - users/{uid}/canvases/{id}  { name, updatedAt, projectId? } (the list)
+ * - users/{uid}/projects/{id}  { name } (folders of canvases)
  * - users/{uid}/scenes/{id}    { data } (gzipped scene JSON)
  * - users/{uid}/files/{fileId} images (Storage, see `LocalData`)
  */
@@ -19,7 +20,14 @@ import { loadFirebase } from "./firebase";
 
 import type { User } from "firebase/auth";
 
-export type Canvas = { id: string; name: string; updatedAt: number };
+export type Canvas = {
+  id: string;
+  name: string;
+  updatedAt: number;
+  projectId?: string;
+};
+
+export type Project = { id: string; name: string };
 
 export const currentCanvasIdAtom = atom<string | null>(null);
 
@@ -107,11 +115,16 @@ export const subscribeToCanvases = (callback: (canvases: Canvas[]) => void) => {
 export const createCanvas = async (
   elements: readonly ExcalidrawElement[] = [],
   appState: Partial<AppState> = {},
+  projectId?: string,
 ) => {
   const { sdk, db } = await loadFirestore();
   const canvas = sdk.doc(sdk.collection(db, userPath("canvases")));
   const batch = sdk.writeBatch(db);
-  batch.set(canvas, { name: "Untitled", updatedAt: Date.now() });
+  batch.set(canvas, {
+    name: "Untitled",
+    updatedAt: Date.now(),
+    ...(projectId && { projectId }),
+  });
   batch.set(
     sdk.doc(db, userPath("scenes", canvas.id)),
     await encodeScene(serializeAsJSON(elements, appState, {}, "database")),
@@ -181,5 +194,61 @@ export const deleteCanvas = async (id: string) => {
   const batch = sdk.writeBatch(db);
   batch.delete(sdk.doc(db, userPath("canvases", id)));
   batch.delete(sdk.doc(db, userPath("scenes", id)));
+  await batch.commit();
+};
+
+/** moves canvas `id` into project `projectId`, or out of any project */
+export const moveCanvas = async (id: string, projectId: string | null) => {
+  const { sdk, db } = await loadFirestore();
+  await sdk.updateDoc(sdk.doc(db, userPath("canvases", id)), {
+    projectId: projectId ?? sdk.deleteField(),
+  });
+};
+
+// -----------------------------------------------------------------------------
+
+export const subscribeToProjects = (
+  callback: (projects: Project[]) => void,
+) => {
+  const unsubscribe = loadFirestore().then(({ sdk, db }) =>
+    sdk.onSnapshot(
+      sdk.query(sdk.collection(db, userPath("projects")), sdk.orderBy("name")),
+      (snapshot) =>
+        callback(
+          snapshot.docs.map(
+            (doc) => ({ id: doc.id, ...doc.data() } as Project),
+          ),
+        ),
+    ),
+  );
+  return () => {
+    unsubscribe.then((unsubscribe) => unsubscribe());
+  };
+};
+
+export const createProject = async () => {
+  const { sdk, db } = await loadFirestore();
+  return (
+    await sdk.addDoc(sdk.collection(db, userPath("projects")), {
+      name: "Untitled project",
+    })
+  ).id;
+};
+
+export const renameProject = async (id: string, name: string) => {
+  const { sdk, db } = await loadFirestore();
+  await sdk.updateDoc(sdk.doc(db, userPath("projects", id)), { name });
+};
+
+/** deletes project `id`; its canvases are kept, outside any project */
+export const deleteProject = async (id: string, canvasIds: string[]) => {
+  const { sdk, db } = await loadFirestore();
+  const batch = sdk.writeBatch(db);
+  batch.delete(sdk.doc(db, userPath("projects", id)));
+  for (const canvasId of canvasIds) {
+    batch.update(sdk.doc(db, userPath("canvases", canvasId)), {
+      projectId: sdk.deleteField(),
+    });
+  }
   await batch.commit();
 };
