@@ -1747,10 +1747,11 @@ class App extends React.Component<AppProps, AppState> {
       (this.state.activeEmbeddable?.element.id !== el.id ||
         this.state.activeEmbeddable?.state === "hover" ||
         !this.state.activeEmbeddable) &&
-      sceneX >= el.x + el.width / 3 &&
-      sceneX <= el.x + (2 * el.width) / 3 &&
-      sceneY >= el.y + el.height / 3 &&
-      sceneY <= el.y + (2 * el.height) / 3
+      (el.customData?.sheet ||
+        (sceneX >= el.x + el.width / 3 &&
+          sceneX <= el.x + (2 * el.width) / 3 &&
+          sceneY >= el.y + el.height / 3 &&
+          sceneY <= el.y + (2 * el.height) / 3))
     );
   }
 

@@ -28,7 +28,6 @@ import clsx from "clsx";
 import {
   memo,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -75,13 +74,14 @@ type SheetData = {
 };
 
 const WIDTH = 720;
-const HEIGHT = 420;
+// toolbar, formula bar and column headers, plus every row
+const CHROME_HEIGHT = 90;
+const SHEET_ROWS = 50;
 const COLUMN_WIDTH = 100;
 const ROW_HEIGHT = 24;
 const MIN_SIZE = 20;
 // must match the headers' size in Sheet.scss
 const HEADER_WIDTH = 44;
-const HEADER_HEIGHT = 24;
 const MAX_DECIMALS = 10;
 const CURRENCIES = ["USD", "EUR", "GBP", "UAH", "PLN"];
 const LINK_COLOR = "#2c61a1";
@@ -185,7 +185,7 @@ const coverMerges = (range: Range, merges: Range[]) => {
 export const insertSheet = (api: ExcalidrawImperativeAPI) => {
   const { scrollX, scrollY, zoom, width, height } = api.getAppState();
   const sheet: SheetData = {
-    rows: 50,
+    rows: SHEET_ROWS,
     cols: 26,
     cells: {},
     colWidths: {},
@@ -194,12 +194,13 @@ export const insertSheet = (api: ExcalidrawImperativeAPI) => {
   };
   // fits a phone's screen
   const sheetWidth = Math.min(WIDTH, width / zoom.value - 32);
+  const sheetHeight = CHROME_HEIGHT + SHEET_ROWS * ROW_HEIGHT;
   const element = newEmbeddableElement({
     type: "embeddable",
     x: width / 2 / zoom.value - scrollX - sheetWidth / 2,
-    y: height / 2 / zoom.value - scrollY - HEIGHT / 2,
+    y: height / 2 / zoom.value - scrollY - sheetHeight / 2,
     width: sheetWidth,
-    height: HEIGHT,
+    height: sheetHeight,
     strokeColor: "#e0e0e0",
     backgroundColor: "#ffffff",
     fillStyle: "solid",
@@ -324,7 +325,6 @@ export const Sheet = memo(
     const rootRef = useRef<HTMLDivElement>(null);
     const gridRef = useRef<HTMLDivElement>(null);
     const isDragging = useRef(false);
-    const skipReveal = useRef(false);
     const [anchor, setAnchor] = useState<Point>({ r: 0, c: 0 });
     const [focus, setFocus] = useState<Point>({ r: 0, c: 0 });
     const [draft, setDraft] = useState<{
@@ -412,9 +412,7 @@ export const Sheet = memo(
       }
     };
 
-    /** whole rows, columns or the sheet, which may be longer than the view */
     const selectSpan = (start: Point, end: Point) => {
-      skipReveal.current = true;
       select(start);
       setFocus(end);
       setMenu(null);
@@ -619,8 +617,8 @@ export const Sheet = memo(
       window.addEventListener("pointerup", onUp);
     };
 
-    const pointOf = (event: React.PointerEvent) => {
-      const cell = (event.target as Element).closest<HTMLElement>("td");
+    const pointOf = (target: Element) => {
+      const cell = target.closest<HTMLElement>("td");
       return cell && { r: Number(cell.dataset.r), c: Number(cell.dataset.c) };
     };
 
@@ -632,6 +630,30 @@ export const Sheet = memo(
       return () => window.removeEventListener("pointerup", stopDragging);
     }, []);
 
+    // the click that woke the sheet lands on the cell under it
+    const lastDown = useRef({ x: 0, y: 0 });
+    useEffect(() => {
+      const remember = (event: PointerEvent) => {
+        lastDown.current = { x: event.clientX, y: event.clientY };
+      };
+      window.addEventListener("pointerdown", remember, true);
+      return () => window.removeEventListener("pointerdown", remember, true);
+    }, []);
+    useEffect(() => {
+      if (isActive) {
+        const hit = document.elementFromPoint(
+          lastDown.current.x,
+          lastDown.current.y,
+        );
+        const point = hit && rootRef.current?.contains(hit) && pointOf(hit);
+        if (point) {
+          select(point);
+        }
+      }
+      // only on activation
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isActive]);
+
     const isEditing = draft !== null;
     useEffect(() => {
       if (isActive && !isEditing) {
@@ -641,34 +663,6 @@ export const Sheet = memo(
         setMenu(null);
       }
     }, [isActive, isEditing]);
-
-    // keeps the moving end of the selection in sight, by hand since
-    // `scrollIntoView` would also scroll the canvas's containers
-    useLayoutEffect(() => {
-      if (skipReveal.current) {
-        skipReveal.current = false;
-        return;
-      }
-      const grid = gridRef.current;
-      const cell = grid?.querySelector<HTMLElement>(
-        `td[data-r="${focus.r}"][data-c="${focus.c}"]`,
-      );
-      if (!grid || !cell) {
-        return;
-      }
-      const right = cell.offsetLeft + cell.offsetWidth;
-      const bottom = cell.offsetTop + cell.offsetHeight;
-      if (cell.offsetLeft - HEADER_WIDTH < grid.scrollLeft) {
-        grid.scrollLeft = cell.offsetLeft - HEADER_WIDTH;
-      } else if (right > grid.scrollLeft + grid.clientWidth) {
-        grid.scrollLeft = right - grid.clientWidth;
-      }
-      if (cell.offsetTop - HEADER_HEIGHT < grid.scrollTop) {
-        grid.scrollTop = cell.offsetTop - HEADER_HEIGHT;
-      } else if (bottom > grid.scrollTop + grid.clientHeight) {
-        grid.scrollTop = bottom - grid.clientHeight;
-      }
-    }, [focus]);
 
     const widthOf = (c: number) =>
       resizing?.axis === "col" && resizing.index === c
@@ -989,7 +983,7 @@ export const Sheet = memo(
             </thead>
             <tbody
               onPointerDown={(event) => {
-                const point = pointOf(event);
+                const point = pointOf(event.target as Element);
                 if (!point || (event.target as Element).tagName === "INPUT") {
                   return;
                 }
@@ -999,7 +993,7 @@ export const Sheet = memo(
                 isDragging.current = event.pointerType === "mouse";
               }}
               onPointerOver={(event) => {
-                const point = pointOf(event);
+                const point = pointOf(event.target as Element);
                 if (isDragging.current && point) {
                   select(point, true);
                 }
