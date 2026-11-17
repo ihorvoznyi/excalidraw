@@ -133,7 +133,7 @@ import { Home } from "./components/Home";
 import { SignIn } from "./components/SignIn";
 import { CodeBlockControls } from "./toolbox/CodeBlockControls";
 import { Sheet } from "./toolbox/Sheet";
-import { ToolboxMenu } from "./toolbox/Toolbox";
+import { TOOLBOX_ITEMS, ToolboxMenu } from "./toolbox/Toolbox";
 import { RoadmapPanel } from "./toolbox/RoadmapPanel";
 import { registerCode } from "./toolbox/code";
 import { registerRoadmap } from "./toolbox/roadmap";
@@ -999,6 +999,12 @@ const ExcalidrawWrapper = () => {
 
         <CommandPalette
           customCommandPaletteItems={[
+            ...TOOLBOX_ITEMS.map(({ label, icon, insert }) => ({
+              label,
+              icon,
+              category: DEFAULT_CATEGORIES.components,
+              perform: () => excalidrawAPI && insert(excalidrawAPI),
+            })),
             {
               label: t("labels.liveCollaboration"),
               category: DEFAULT_CATEGORIES.app,

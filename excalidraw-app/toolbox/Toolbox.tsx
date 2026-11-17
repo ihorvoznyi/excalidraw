@@ -63,7 +63,7 @@ const roadmapIcon = createIcon(
   tablerIconProps,
 );
 
-const ITEMS = [
+export const TOOLBOX_ITEMS = [
   { label: "To-do", icon: todoIcon, insert: insertTodo },
   { label: "Code block", icon: codeIcon, insert: insertCode },
   { label: "Sheet", icon: sheetIcon, insert: insertSheet },
@@ -75,7 +75,7 @@ export const Toolbox = () => {
 
   return (
     <div className="toolbox">
-      {ITEMS.map(({ label, icon, insert }) => (
+      {TOOLBOX_ITEMS.map(({ label, icon, insert }) => (
         <button
           key={label}
           type="button"
@@ -102,7 +102,7 @@ export const ToolboxMenu = () => {
           Components
         </DropdownMenu.Sub.Trigger>
         <DropdownMenu.Sub.Content>
-          {ITEMS.map(({ label, icon, insert }) => (
+          {TOOLBOX_ITEMS.map(({ label, icon, insert }) => (
             <DropdownMenu.Item
               key={label}
               icon={icon}

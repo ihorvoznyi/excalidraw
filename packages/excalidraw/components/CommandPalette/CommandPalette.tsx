@@ -92,10 +92,13 @@ export const DEFAULT_CATEGORIES = {
   elements: "Elements",
   links: "Links",
   library: "Library",
+  components: "Components",
 };
 
 const getCategoryOrder = (category: string) => {
   switch (category) {
+    case DEFAULT_CATEGORIES.components:
+      return 0;
     case DEFAULT_CATEGORIES.app:
       return 1;
     case DEFAULT_CATEGORIES.export:
@@ -158,7 +161,11 @@ export const CommandPalette = Object.assign(
 
     useEffect(() => {
       const commandPaletteShortcut = (event: KeyboardEvent) => {
-        if (isCommandPaletteToggleShortcut(event)) {
+        // ":" outside a text field opens it too
+        if (event.key === ":" && !isWritableElement(event.target)) {
+          event.preventDefault();
+          setAppState({ openDialog: { name: "commandPalette" } });
+        } else if (isCommandPaletteToggleShortcut(event)) {
           event.preventDefault();
           event.stopPropagation();
           setAppState((appState) => {
