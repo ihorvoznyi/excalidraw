@@ -60,14 +60,19 @@ const newCodeBlock = (x: number, y: number, language: string, code: string) => {
 export const insertCode = (api: ExcalidrawImperativeAPI) => {
   const { scrollX, scrollY, zoom, width, height } = api.getAppState();
   const [block, label] = newCodeBlock(
-    width / 2 / zoom.value - scrollX - MIN_WIDTH / 2,
+    width / 2 / zoom.value - scrollX - (MIN_WIDTH * 3) / 2,
     height / 2 / zoom.value - scrollY,
-    "typescript",
-    "// code",
+    "markdown",
+    "# title",
   );
+  // a new block from the toolbox is 3x wider and 3x higher than its code
+  const bigBlock = newElementWith(block, {
+    width: block.width * 3,
+    height: block.height * 3,
+  });
   api.updateScene({
-    elements: [...api.getSceneElementsIncludingDeleted(), block, label],
-    appState: { selectedElementIds: { [block.id]: true } },
+    elements: [...api.getSceneElementsIncludingDeleted(), bigBlock, label],
+    appState: { selectedElementIds: { [bigBlock.id]: true } },
     captureUpdate: CaptureUpdateAction.IMMEDIATELY,
   });
 };

@@ -18,7 +18,7 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { registerCanvasButton } from "./canvasButton";
 
 const SNIPPET = /^:todo(\s+|$)/;
-const MIN_WIDTH = 200;
+const MIN_WIDTH = 600;
 
 // ?v=2 previews the cartoonist sloppiness instead of artist
 const roughness =
